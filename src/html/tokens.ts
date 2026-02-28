@@ -175,6 +175,8 @@ export function renderToken(
     /// asked for `--externals`, there's no html page for us to link to. we
     /// could either break the link or degrade to a plain span — we chose the
     /// latter, because a broken link is worse than no link.
+    const anchor = `def-${sanitizeId(token.definitionId)}`;
+    
     if (knownFiles && !knownFiles.has(token.definitionFile)) {
       if (!includeExternals) {
         const idAttr = tokenId ? ` id="${tokenId}"` : "";
