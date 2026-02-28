@@ -1,18 +1,44 @@
-// code block rendering with syntax highlighting and links
+/// # code block rendering
+///
+/// this is where the magic happens. for each code layer, we ask the
+/// typescript language service for two things:
+///
+/// 1. **syntactic classifications** — the basic token types (keyword,
+///    string, identifier, comment, etc.). these map directly to CSS
+///    classes for syntax coloring.
+/// 2. **semantic classifications** — richer type information that tells
+///    us whether an identifier is a function, a class, a type parameter,
+///    etc. this lets us color functions differently from variables, for
+///    example, matching what VS Code does.
+///
+/// we then walk through the tokens, look up their definitions (for
+/// cross-linking), fetch quickinfo (for hover tooltips), and render
+/// each one as an html element.
 
 import ts from "typescript";
 import type { Layer } from "../extract.js";
 import type { TokenInfo } from "./types.js";
 import { isLinkable, escapeHtml, renderToken, type ComputeLink } from "./tokens.js";
 
-// semantic token types from typescript's classifier2020.ts
+/// ## semantic token decoding
+///
+/// there are two levels of "what is this token?" that typescript can tell
+/// us. the syntactic level is cheap and obvious: keywords look like
+/// keywords, strings look like strings. but the *semantic* level requires
+/// actually type-checking the program. is `foo` a function or a variable?
+/// you can't know from syntax alone.
+///
+/// typescript's semantic classification API encodes this information in a
+/// peculiar way: a flat array of triples `[start, length, encoding]` where
+/// the encoding packs the token type into bits 8 and up. we shift and
+/// index to get a human-readable type name.
+
 const semanticTokenTypes = [
   "class", "enum", "interface", "namespace", "type-parameter", 
   "type", "parameter", "variable", "enum-member", "property", 
   "function", "method"
 ];
 
-// decode semantic classification from 2020 format
 function decodeSemanticClassification(encoded: number): string | undefined {
   const typeIdx = (encoded >> 8) - 1;
   if (typeIdx >= 0 && typeIdx < semanticTokenTypes.length) {
@@ -21,22 +47,41 @@ function decodeSemanticClassification(encoded: number): string | undefined {
   return undefined;
 }
 
+/// ## RenderContext
+///
+/// rendering a code block requires a lot of ambient state — the language
+/// service, the current filename, a growing map of definitions we've
+/// discovered, maybe a set of external files we've noticed. rather than
+/// threading all of this as separate arguments, we bundle it into a
+/// context object that gets passed around.
+
 export interface RenderContext {
   service: ts.LanguageService;
   filename: string;
+  /// this map is *shared* across all files in a multi-file build. as we
+  /// render each file, we discover definition sites and register them here.
+  /// later files can then link back to definitions found in earlier files.
   definitions: Map<string, { file: string; line: number; column: number }>;
-  // optional: for multi-file mode with external tracking
   externalFiles?: Set<string>;
   knownFiles?: Map<string, string>;
   computeLink?: ComputeLink;
   includeExternals?: boolean;
-  // quickinfo collection - maps token id to quickinfo text
+  /// we collect quickinfo (type signatures, jsdoc) during rendering and
+  /// stash it here keyed by token id. once the page is fully rendered,
+  /// `wrapHtml` turns this map into hidden `<template>` elements that the
+  /// client-side tooltip script can clone on hover.
   quickInfoMap?: Map<string, string>;
-  // counter for generating unique token ids
   tokenIdCounter?: { value: number };
 }
 
-// render a code block with syntax highlighting and links
+/// ## renderCodeBlock
+///
+/// this is the heart of ts-literate. given a code layer, we want to
+/// produce html that looks like a code editor — colored tokens, clickable
+/// identifiers, hover tooltips — but as a static page. the trick is that
+/// we're reconstructing what VS Code does at runtime, but baking the
+/// results into html at build time.
+
 export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
   const { service, filename, definitions } = ctx;
   
@@ -46,19 +91,26 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
   const sourceFile = program.getSourceFile(filename);
   if (!sourceFile) return `<pre class="code">${escapeHtml(layer.content)}</pre>`;
   
+  /// first, we ask for the cheap stuff: syntactic classification. this is
+  /// basically a tokenizer — it tells us where keywords, strings, comments,
+  /// and identifiers are without doing any type analysis. fast, but it
+  /// can't distinguish a function call from a variable reference.
   const syntacticSpans = service.getSyntacticClassifications(filename, {
     start: layer.offset,
     length: layer.originalLength
   });
   
-  // get semantic classifications for better token types (method, function, etc)
+  /// then we ask for the expensive stuff. semantic classification requires
+  /// the full type checker to run. in return, we get the good stuff: this
+  /// identifier isn't just an "identifier" — it's a *function*. that one's
+  /// an *interface*. this lets us color them differently, just like VS Code
+  /// would.
   const semanticResult = service.getEncodedSemanticClassifications(
     filename, 
     { start: layer.offset, length: layer.originalLength },
     ts.SemanticClassificationFormat.TwentyTwenty
   );
   
-  // build a map of start position -> semantic type
   const semanticTypes = new Map<number, string>();
   for (let i = 0; i < semanticResult.spans.length; i += 3) {
     const start = semanticResult.spans[i];
@@ -69,6 +121,10 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     }
   }
   
+  /// now we marry the two: for each syntactic span, we look up whether
+  /// there's a semantic type at that position. a token might be syntactically
+  /// an "identifier" but semantically a "function" — it gets both classes,
+  /// and the CSS can make functions purple while leaving plain variables black.
   const tokens: TokenInfo[] = [];
   
   for (const span of syntacticSpans) {
@@ -77,7 +133,6 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     const text = sourceFile.text.slice(start, start + length);
     const classes = [span.classificationType.toLowerCase().replace(/ /g, "-")];
     
-    // add semantic type if available (more precise than syntactic)
     const semType = semanticTypes.get(start);
     if (semType) {
       classes.push(semType);
@@ -86,6 +141,11 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     const token: TokenInfo = { start, length, text, classes };
     
     if (isLinkable(span.classificationType)) {
+      /// this is where identifiers become hyperlinks. we ask the language
+      /// service "where is this thing defined?" — the same operation as
+      /// ctrl+click in VS Code. if the definition is right here at this
+      /// position, we've found a definition site. if it's somewhere else,
+      /// we've found a reference that should link to the definition.
       const defs = service.getDefinitionAtPosition(filename, start);
       if (defs && defs.length > 0) {
         const def = defs[0];
@@ -93,7 +153,6 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
         token.definitionId = defId;
         token.definitionFile = def.fileName;
         
-        // track external files if in multi-file mode
         if (ctx.externalFiles && ctx.knownFiles && !ctx.knownFiles.has(def.fileName)) {
           if (ctx.includeExternals) {
             ctx.externalFiles.add(def.fileName);
@@ -111,7 +170,9 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
         }
       }
       
-      // get quickinfo for tooltip
+      /// and while we're asking the language service about this token, we
+      /// might as well grab the hover info too — the same tooltip you'd see
+      /// in VS Code. we'll bake it into the page as a hidden template.
       if (ctx.quickInfoMap && ctx.tokenIdCounter) {
         const info = service.getQuickInfoAtPosition(filename, start);
         if (info && info.displayParts) {
@@ -123,6 +184,11 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     tokens.push(token);
   }
   
+  /// finally, we assemble the html. tokens don't cover the entire source
+  /// text — there are gaps between them (whitespace, some operators, things
+  /// the classifier didn't bother tagging). we walk through in order,
+  /// emitting classified tokens as styled elements and filling the gaps
+  /// with plain escaped text.
   tokens.sort((a, b) => a.start - b.start);
   
   let result = '<pre class="code">';
@@ -132,7 +198,6 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
   for (const token of tokens) {
     if (token.start < layer.offset || token.start >= layerEnd) continue;
     
-    // fill gap before this token
     if (token.start > pos) {
       const gap = sourceFile.text.slice(pos, token.start);
       result += escapeHtml(gap);
@@ -148,13 +213,13 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     pos = token.start + token.length;
   }
   
-  // fill gap after last token
   if (pos < layerEnd) {
     const gap = sourceFile.text.slice(pos, layerEnd);
     result += escapeHtml(gap);
   }
   
-  // trim trailing blank lines from code blocks
+  /// trim trailing blank lines so code blocks don't have awkward whitespace
+  /// at the bottom.
   result = result.replace(/\n+$/, "");
   
   result += "</pre>";
