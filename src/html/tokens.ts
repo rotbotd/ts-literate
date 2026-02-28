@@ -167,17 +167,14 @@ export function renderToken(
     }
     return `<a id="${defId}" href="#${defId}" class="${classAttr}">${text}</a>`;
   } else if (token.definitionId && token.definitionFile) {
-    /// a reference. this token points somewhere else. maybe to a definition
-    /// in the same file (easy — just `#anchor`), maybe to another file in
-    /// the project (we compute a relative path between their html outputs),
-    /// or maybe to something outside the project entirely.
-    const anchor = `def-${sanitizeId(token.definitionId)}`;
-    
-    /// that last case — external definitions — is the tricky one. if
-    /// someone references `Array` or `Promise`, those are defined in
-    /// typescript's lib files, not in our project. unless `--externals`
-    /// was passed, we can't link to them because there's no html page
-    /// to link to. so they degrade gracefully to plain colored spans.
+    /// the interesting question is: where does the link go? same-file links
+    /// are trivial — just an `#anchor`. but cross-file links require computing
+    /// a relative path between two html files that might be at different
+    /// depths in the output tree. and then there's the really annoying case:
+    /// the definition lives in `node_modules` or `lib.d.ts`. unless the user
+    /// asked for `--externals`, there's no html page for us to link to. we
+    /// could either break the link or degrade to a plain span — we chose the
+    /// latter, because a broken link is worse than no link.
     if (knownFiles && !knownFiles.has(token.definitionFile)) {
       if (!includeExternals) {
         const idAttr = tokenId ? ` id="${tokenId}"` : "";
