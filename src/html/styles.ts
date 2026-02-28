@@ -234,7 +234,6 @@ pre.code {
   margin-left: calc(-50vw + 50%);
   margin-right: calc(-50vw + 50%);
   padding-left: calc(50vw - 50% + 1rem);
-  padding-right: calc(50vw - 50% + 1rem);
   overflow-x: auto;
 }
 
