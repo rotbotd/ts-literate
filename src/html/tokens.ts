@@ -191,6 +191,10 @@ export function renderToken(
     /// latter, because a broken link is worse than no link.
     const anchor = `def-${sanitizeId(token.definitionId)}`;
     
+    /// here's the graceful degradation: if the definition is in a file we
+    /// don't have html for (an external we're not including), we bail out
+    /// of making it a link entirely. it still gets colored — it just won't
+    /// be clickable. better than a link that 404s.
     if (knownFiles && !knownFiles.has(token.definitionFile)) {
       if (!includeExternals) {
         const idAttr = tokenId ? ` id="${tokenId}"` : "";

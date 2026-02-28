@@ -55,6 +55,10 @@ export function createLanguageService(filename: string, source: string): ts.Lang
       strict: true,
     }),
     getDefaultLibFileName: (opts) => ts.getDefaultLibFilePath(opts),
+    /// the remaining methods delegate to typescript's built-in `sys` object,
+    /// which provides platform-appropriate filesystem operations. we override
+    /// `fileExists` and `readFile` to intercept our target file, but everything
+    /// else (directory listing, etc.) goes straight to disk.
     fileExists: (name) => name === filename || ts.sys.fileExists(name),
     readFile: (name) => name === filename ? source : ts.sys.readFile(name),
     readDirectory: ts.sys.readDirectory,
@@ -62,6 +66,9 @@ export function createLanguageService(filename: string, source: string): ts.Lang
     getDirectories: ts.sys.getDirectories,
   };
   
+  /// the document registry is a shared cache that typescript uses to avoid
+  /// re-parsing files that haven't changed. for single-file mode it doesn't
+  /// matter much, but it's required by the API.
   return ts.createLanguageService(host, ts.createDocumentRegistry());
 }
 

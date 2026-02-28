@@ -272,6 +272,9 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
     fileCache.set(absPath, content);
   }
 
+  /// the initial build generates html for every file at once. this is
+  /// slower than incremental rebuilds but ensures all cross-file links
+  /// are correct from the start.
   const result = await generateHtmlMulti(fileMap, {
     includeHighlightScript: true,
     projectRoot,
@@ -304,6 +307,9 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
   /// set and start the debounce timer.
   console.log("watching for changes...");
   watch(srcDir, { recursive: true }, async (event, filename) => {
+    /// we only care about `.ts` files (not `.d.ts`, not `.js`, not anything
+    /// else). and sometimes the watcher fires for files that were deleted
+    /// mid-operation, so we check existence too.
     if (!filename || !filename.endsWith(".ts") || filename.endsWith(".d.ts")) {
       return;
     }
@@ -314,6 +320,10 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
       return;
     }
 
+    /// the cheapest possible change detection: compare the full file content
+    /// against our cache. editors like VS Code sometimes trigger "save" events
+    /// even when no bytes changed (e.g., format-on-save with no formatting
+    /// changes). this avoids a full rebuild for those no-ops.
     const newContent = readFileSync(absPath, "utf-8");
     const oldContent = fileCache.get(absPath);
 
@@ -376,6 +386,9 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
     /// endpoint. so we do a sneaky string replacement: right before
     /// `</body>`, we inject a tiny script that connects to `/__reload`
     /// and calls `location.reload()` when it gets an event.
+    /// we assume all routes are html pages. `/foo` becomes `/foo.html`,
+    /// `/` becomes `/index.html`. this means you can navigate to
+    /// `localhost:3000/src/cli` without typing the extension.
     let path = url === "/" ? "/index.html" : url;
     if (!path.endsWith(".html")) path += ".html";
 
@@ -392,6 +405,9 @@ new EventSource("/__reload").onmessage = () => location.reload();
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(injected);
     } else {
+      /// if `/foo` doesn't match `/foo.html`, maybe it's a directory with
+      /// an `index.html` inside it. this lets you navigate to `/src/html/`
+      /// and get the index for that subdirectory.
       const indexPath = join(outputDir, url.replace(/\/$/, ""), "index.html");
       if (existsSync(indexPath)) {
         const html = readFileSync(indexPath, "utf-8");

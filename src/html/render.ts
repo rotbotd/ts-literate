@@ -111,6 +111,10 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     ts.SemanticClassificationFormat.TwentyTwenty
   );
   
+  /// the semantic result is a flat array of triples: [start, length, encoding].
+  /// we decode each triple and build a lookup map from position → type name,
+  /// so we can quickly check "is there a semantic type at position N?" when
+  /// we're iterating through syntactic tokens.
   const semanticTypes = new Map<number, string>();
   for (let i = 0; i < semanticResult.spans.length; i += 3) {
     const start = semanticResult.spans[i];
