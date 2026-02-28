@@ -1,4 +1,23 @@
-// css and js assets for generated html
+/// # CSS and JavaScript assets
+///
+/// all the styles and client-side scripts are defined here as template
+/// literals. they get inlined directly into each generated html page
+/// (unless you provide an external CSS file via the `cssFile` option).
+///
+/// ## design philosophy
+///
+/// the visual design follows a few principles:
+///
+/// - **code blocks go full-width** — they break out of the prose column
+///   using negative margins (`calc(-50vw + 50%)`). this gives code room
+///   to breathe while keeping prose at a comfortable reading width.
+/// - **github-light color scheme** — the syntax highlighting colors match
+///   VS Code's github-light theme, which is what most people associate
+///   with "github-style" code rendering.
+/// - **minimal chrome** — no line numbers, no copy buttons, no file
+///   headers. just code and prose flowing together.
+/// - **interactive but not flashy** — hover highlighting and tooltips
+///   reveal structure on demand without cluttering the default view.
 
 export const defaultCss = `
 body {
@@ -8,6 +27,9 @@ body {
   line-height: 1.6;
 }
 
+/// the watermark is a subtle header with an "index" link on the left
+/// and "ts-literate" branding on the right. it uses \`pointer-events: none\`
+/// so it doesn't interfere with the content underneath.
 .watermark {
   position: absolute;
   top: 0;
@@ -37,12 +59,19 @@ body {
   font-style: italic;
 }
 
+/// the \`.literate\` container constrains prose to 80ch width, which is
+/// a comfortable reading measure for proportional fonts.
 .literate {
   font-size: 15px;
   max-width: 80ch;
   margin: 0 auto;
 }
 
+/// ## prose styles
+///
+/// prose sections get full markdown styling — headings, lists, blockquotes,
+/// code blocks (within prose, these are fenced code blocks highlighted by
+/// shiki), tables, etc.
 .prose {
   margin: 1.5rem 0;
 }
@@ -183,6 +212,12 @@ body {
   height: auto;
 }
 
+/// ## code block styles
+///
+/// code blocks (the actual typescript source, not fenced code in prose)
+/// use the full-width breakout technique. the negative margins and calc
+/// values make the code extend to the viewport edges while keeping the
+/// text aligned with the prose column.
 pre.code {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
@@ -198,16 +233,19 @@ pre.code {
   overflow-x: auto;
 }
 
-/* github-light theme colors
-   #d73a49 - keyword, storage, operator
-   #6f42c1 - entity.name (functions, classes, types)
-   #005cc5 - constant, support, enummember
-   #032f62 - string
-   #6a737d - comment
-   #e36209 - variable (but variable.other is default)
-   #24292e - default text
-   #22863a - entity.name.tag (jsx)
-*/
+/// ## syntax highlighting colors
+///
+/// these follow the github-light theme from VS Code / shiki:
+///
+/// | color     | usage                              |
+/// |-----------|------------------------------------|
+/// | \`#d73a49\` | keywords, operators, storage       |
+/// | \`#6f42c1\` | functions, classes, types (purple)  |
+/// | \`#005cc5\` | constants, properties (blue)        |
+/// | \`#032f62\` | strings                            |
+/// | \`#6a737d\` | comments                           |
+/// | \`#22863a\` | jsx tags (green)                   |
+/// | \`#24292e\` | default text                       |
 
 /* syntactic tokens */
 .ts-keyword { color: #d73a49; }
@@ -249,6 +287,11 @@ pre.code {
 .ts-module-name { color: #6f42c1; }
 .ts-parameter-name { color: #24292e; }
 
+/// ## hover highlighting
+///
+/// when you mouse over any identifier, all other references to the same
+/// definition light up with a yellow background. this makes it easy to
+/// see at a glance where a variable is used.
 /* hover highlight */
 .hover-highlight {
   background: #fff3cd;
@@ -265,6 +308,12 @@ a:hover {
   background: #e8f4ff;
 }
 
+/// ## tooltip styles
+///
+/// the quickinfo tooltip appears on hover and shows type information
+/// (the same thing VS Code shows). it uses \`position: fixed\` with a
+/// CSS transform for GPU-accelerated positioning, and fades in/out
+/// with a short opacity transition.
 /* quickinfo tooltip - using transform for GPU acceleration */
 #tooltip {
   position: fixed;
@@ -290,10 +339,16 @@ a:hover {
   opacity: 1;
 }
 
-
 `;
 
-// tooltip script - queries templates by id on hover
+/// ## tooltip script
+///
+/// the tooltip works by looking up `<template>` elements by id. when you
+/// hover over a token that has an id attribute, we look for a corresponding
+/// `<template id="qi-{id}">` element and clone its content into the tooltip
+/// div. this is efficient because we avoid storing potentially large type
+/// signatures as data attributes.
+
 export const tooltipScript = `
 (function() {
   var tooltip = document.createElement('div');
@@ -339,6 +394,13 @@ export const tooltipScript = `
   });
 })();
 `;
+
+/// ## hover highlight script
+///
+/// this script builds a map from href → set of elements. when you hover
+/// over any link, it finds all other links with the same href (i.e., all
+/// references to the same definition) and adds the `hover-highlight` class.
+/// this creates the "light up all usages" effect.
 
 export const highlightScript = `
 var dict = new Map();
