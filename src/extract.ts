@@ -130,6 +130,10 @@ export function extractLayers(source: string): Layer[] {
   /// the blank lines.
   const merged: Layer[] = [];
   
+  /// we look at each layer in sequence. when we find a code layer that's
+  /// nothing but whitespace, we check whether it's sandwiched between two
+  /// prose layers. if so, we absorb it into the preceding prose — the blank
+  /// line becomes paragraph spacing in markdown rather than an empty code block.
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i];
     
