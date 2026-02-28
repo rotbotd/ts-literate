@@ -134,6 +134,11 @@ export function highlightQuickInfo(text: string): string {
 
 export type ComputeLink = (fromFile: string, toFile: string, anchor: string) => string;
 
+/// `renderToken` needs a lot of context to do its job — which files are
+/// in the project, how to compute links between them, whether to include
+/// externals, where to stash tooltip info. rather than threading these as
+/// individual arguments (there'd be six of them), we bundle them up. most
+/// are optional because single-file mode doesn't need cross-file linking.
 export interface RenderTokenOptions {
   knownFiles?: Map<string, string>;
   computeLink?: ComputeLink;
