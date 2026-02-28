@@ -183,6 +183,11 @@ function findTsFiles(dir: string): string[] {
 /// so it's opt-in.
 
 async function processExternals(externalFiles: Set<string>, projectRoot: string, outputDir: string): Promise<void> {
+  /// external files can reference *other* external files (lib.es5.d.ts
+  /// references lib.es2015.d.ts, which references lib.es2015.core.d.ts,
+  /// and so on). so we process them in a loop: each batch might discover
+  /// new externals that need to be added to the next batch. in practice
+  /// this converges quickly — the typescript lib files form a shallow DAG.
   const toProcess = new Set(externalFiles);
   const processed = new Set<string>();
   const allExternals = new Map<string, string>();
@@ -195,6 +200,9 @@ async function processExternals(externalFiles: Set<string>, projectRoot: string,
       if (processed.has(file)) continue;
       processed.add(file);
 
+      /// some referenced files might not exist on disk — for example, if
+      /// a type reference points to a package that isn't installed. we skip
+      /// those rather than crashing.
       if (!existsSync(file)) {
         console.log(`  skip ${file} (not found)`);
         continue;
@@ -240,8 +248,15 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
   const projectRoot = resolve(srcDir);
   const outputDir = resolve(outDir);
 
+  /// we keep a cache of every file's content so we can detect when a file
+  /// has *actually* changed vs when the editor just touched it without
+  /// modifying anything. this avoids unnecessary rebuilds.
   const fileCache = new Map<string, string>();
   
+  /// multiple files can change in rapid succession (e.g., your editor does
+  /// a "save all" or a git checkout touches many files at once). rather than
+  /// rebuilding once per file, we collect changes and rebuild after a 100ms
+  /// quiet period.
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const pendingChanges = new Set<string>();
 
@@ -417,6 +432,12 @@ async function regenerateFiles(
 ): Promise<void> {
   const startTime = Date.now();
 
+  /// we rebuild the language service from all cached files, not just the
+  /// changed ones. this is necessary because changing file A might affect
+  /// the type information displayed in file B (e.g., if B imports from A).
+  /// the language service is fast enough that this isn't a bottleneck —
+  /// the expensive part is the html generation, which we limit to changed
+  /// files only.
   const fileMap = new Map<string, string>();
   for (const [path, content] of fileCache) {
     fileMap.set(path, content);
@@ -431,6 +452,10 @@ async function regenerateFiles(
   let writtenCount = 0;
   const changedSet = new Set(changedFiles);
 
+  /// we only write files that actually changed, plus the index (which
+  /// might need updating if the changed file added or removed exports).
+  /// this keeps incremental rebuilds fast — we're not rewriting 50 html
+  /// files because one comment changed.
   for (const [filename, html] of result.files) {
     const isIndex = filename.endsWith("/index.html");
     if (isIndex || changedSet.has(filename)) {

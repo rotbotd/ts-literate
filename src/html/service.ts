@@ -29,8 +29,16 @@ import { illiterate } from "../extract.js";
 
 export function createLanguageService(filename: string, source: string): ts.LanguageService {
   const host: ts.LanguageServiceHost = {
+    /// "what files should i analyze?" — just the one.
     getScriptFileNames: () => [filename],
+    /// "has this file changed since i last looked?" — no, we only read
+    /// each file once. returning a constant version string means the
+    /// service never invalidates its cache.
     getScriptVersion: () => "1",
+    /// "give me the contents of this file." for our target file, we serve
+    /// the in-memory source string. for anything else (like `lib.d.ts`),
+    /// we read from disk. this is how the service finds type definitions
+    /// for built-in types like `Array` and `Promise`.
     getScriptSnapshot: (name) => {
       if (name === filename) {
         return ts.ScriptSnapshot.fromString(source);
@@ -71,12 +79,17 @@ export function createLanguageService(filename: string, source: string): ts.Lang
 export function createMultiFileLanguageService(files: Map<string, string>): ts.LanguageService {
   const fileNames = [...files.keys()];
   
+  /// we illiterate all files upfront rather than on-demand. this is a one-time
+  /// cost and ensures the language service never sees `///` prose lines.
   const illiteratedFiles = new Map<string, string>();
   for (const [name, source] of files) {
     illiteratedFiles.set(name, illiterate(source));
   }
   
   const host: ts.LanguageServiceHost = {
+    /// "what files should i analyze?" — all of them. this is how the language
+    /// service knows that `import { foo } from "./bar"` should resolve to
+    /// our bar.ts, not some random file on disk.
     getScriptFileNames: () => fileNames,
     getScriptVersion: () => "1",
     getScriptSnapshot: (name) => {
@@ -93,6 +106,9 @@ export function createMultiFileLanguageService(files: Map<string, string>): ts.L
       return undefined;
     },
     getCurrentDirectory: () => process.cwd(),
+    /// `NodeNext` module resolution is important here — without it, typescript
+    /// won't resolve `.js` extension imports (which are standard for ESM
+    /// projects that compile `.ts` → `.js`).
     getCompilationSettings: () => ({
       target: ts.ScriptTarget.ESNext,
       module: ts.ModuleKind.ESNext,

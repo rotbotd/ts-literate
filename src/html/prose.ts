@@ -23,11 +23,21 @@ let marked: Marked | null = null;
 export async function initMarked(): Promise<void> {
   if (marked) return;
   
+  /// we pre-load grammars for the languages most likely to appear in code
+  /// fences inside documentation. typescript and javascript are obvious;
+  /// bash for shell examples, json for config files, css and html for
+  /// web-related docs.
   const highlighter = await createHighlighter({
     themes: ["github-light"],
     langs: ["typescript", "javascript", "json", "bash", "css", "html"],
   });
   
+  /// `marked-shiki` hooks into marked's code fence rendering. when marked
+  /// encounters a fenced code block, it calls our `highlight` function
+  /// instead of emitting plain `<code>`. we check if the requested language
+  /// is one we loaded a grammar for — if not, we fall back to plaintext
+  /// rather than crashing. (someone might write a ```rust block in their
+  /// docs even though we didn't load the rust grammar.)
   marked = new Marked();
   marked.use(markedShiki({
     highlight(code, lang) {

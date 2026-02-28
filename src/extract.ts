@@ -181,6 +181,11 @@ export function illiterate(source: string): string {
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith("///")) {
+      /// we replace the entire line with spaces of the same length. not
+      /// just the `///` — the whole line. this means the language service
+      /// sees a blank line where the prose was, which it happily ignores.
+      /// crucially, the replacement is exactly the same number of bytes,
+      /// so every position after this line is still correct.
       result.push(" ".repeat(line.length));
     } else {
       result.push(line);

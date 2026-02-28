@@ -93,6 +93,10 @@ export async function generateHtmlMulti(files: Map<string, string>, options: Htm
   const results = new Map<string, string>();
   const projectRoot = options.projectRoot ?? process.cwd();
 
+  /// the shared language service is the crucial difference from single-file
+  /// mode. every file gets loaded into one service instance, so when file A
+  /// imports from file B, the language service can resolve that reference
+  /// and tell us exactly where in file B the symbol is defined.
   const service = createMultiFileLanguageService(files);
 
   const toHtmlPath = (tsPath: string) => {
@@ -122,6 +126,11 @@ export async function generateHtmlMulti(files: Map<string, string>, options: Htm
     return `${rel}#${anchor}`;
   };
 
+  /// now we iterate through every file and render it. the order doesn't
+  /// matter for correctness — definitions found in earlier files get
+  /// registered in `allDefinitions`, but references to not-yet-seen
+  /// definitions still work because the language service already knows
+  /// about all files.
   for (const [filename, source] of files) {
     const layers = extractLayers(source);
     const quickInfoMap = new Map<string, string>();
@@ -154,6 +163,10 @@ export async function generateHtmlMulti(files: Map<string, string>, options: Htm
     results.set(filename, html);
   }
 
+  /// after all files are rendered, we generate the index page — a table
+  /// of contents that lists every symbol in the project with links to
+  /// their definition sites. this is skipped for external-file builds
+  /// (they piggyback on the index from the main build).
   if (!options.skipIndex) {
     const fileHtmlPaths = new Map<string, string>();
     for (const filename of files.keys()) {
@@ -178,11 +191,19 @@ export async function generateHtmlMulti(files: Map<string, string>, options: Htm
 
 function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInfoMap: Map<string, string>): string {
   const title = options.title ?? filename;
+  /// styles can either be inlined (the default, so each page is self-contained)
+  /// or loaded from an external file (useful if you want to customize the look
+  /// without rebuilding).
   const css = options.cssFile ? `<link rel="stylesheet" href="${escapeHtml(options.cssFile)}">` : `<style>${defaultCss}</style>`;
   const script = options.includeHighlightScript !== false ? `<script>${highlightScript}</script>` : "";
 
+  /// the tooltip script only gets included if there are actually tooltips to
+  /// show. no point adding javascript to a page that won't use it.
   const tooltipSetupScript = quickInfoMap.size > 0 ? `<script>${tooltipScript}</script>` : "";
 
+  /// each tooltip's content lives in a `<template>` element. templates are
+  /// inert — the browser doesn't render them or execute their scripts. the
+  /// tooltip script clones the right template's content on hover.
   let quickInfoTemplates = "";
   if (quickInfoMap.size > 0) {
     quickInfoTemplates = '<div id="quickinfo-templates" style="display:none">\n';
@@ -192,6 +213,8 @@ function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInf
     quickInfoTemplates += "</div>";
   }
 
+  /// for the page title, we strip the directory path — `/home/user/project/src/foo.ts`
+  /// becomes just `foo.ts`. nobody wants a browser tab that says the full absolute path.
   const displayTitle = title.includes("/") ? title.split("/").pop()! : title;
 
   return `<!DOCTYPE html>
@@ -262,6 +285,9 @@ h1 { border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
 <h1>Symbol Index</h1>
 `;
 
+  /// files are sorted alphabetically by their path relative to the project
+  /// root. this gives the index a predictable order regardless of what order
+  /// the filesystem returned them in.
   const sortedFiles = [...files.keys()].sort((a, b) => {
     const relA = a.replace(projectRoot, "");
     const relB = b.replace(projectRoot, "");
@@ -273,6 +299,9 @@ h1 { border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
     if (!htmlPath) continue;
 
     const relPath = filename.replace(projectRoot + "/", "");
+    /// `getNavigationTree` is the same API VS Code uses for the outline panel
+    /// in the sidebar. it returns a tree of symbols — modules contain classes,
+    /// classes contain methods, etc. we render it as nested html lists.
     const tree = service.getNavigationTree(filename);
 
     body += `<div class="file">`;
@@ -307,6 +336,10 @@ const structural = new Set(["function", "method", "class", "interface", "propert
 const hideChildren = new Set(["function", "method"]);
 
 function renderSymbolChildren(items: readonly ts.NavigationTree[], htmlPath: string, filename: string, depth: number = 0): string {
+  /// at the top level, we show both structural symbols (functions, classes,
+  /// interfaces) and variable declarations (const, let, var). deeper in
+  /// the tree, we drop the variable declarations — you don't want to see
+  /// every `const` inside a function body.
   const filtered = depth === 0 ? items.filter(item => structural.has(item.kind) || topLevel.has(item.kind)) : items.filter(item => structural.has(item.kind));
 
   if (filtered.length === 0) return "";
@@ -314,6 +347,9 @@ function renderSymbolChildren(items: readonly ts.NavigationTree[], htmlPath: str
   let html = "<ul>";
   for (const item of filtered) {
     const kindClass = `kind-${item.kind.replace(/ /g, "-")}`;
+    /// the anchor id needs to match exactly what `renderToken` generates
+    /// for the corresponding definition site. we use the filename and byte
+    /// offset, sanitized for html id rules.
     const anchor = `def-${sanitizeId(filename)}-${item.nameSpan?.start ?? item.spans[0]?.start ?? 0}`;
 
     html += `<li class="symbol">`;

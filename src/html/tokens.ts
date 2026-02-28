@@ -90,6 +90,8 @@ export function highlightQuickInfo(text: string): string {
     return escapeHtml(text);
   }
   
+  /// shiki gives us an array of tokens-per-line, each with a color.
+  /// we render them as inline `<span style="color:...">` elements.
   const { tokens } = highlighter.codeToTokens(text, { 
     lang: "typescript", 
     theme: "github-light" 
@@ -98,6 +100,9 @@ export function highlightQuickInfo(text: string): string {
   let html = "";
   for (const line of tokens) {
     for (const token of line) {
+      /// the default text color (#24292e) matches the tooltip's own text
+      /// color, so we skip it to avoid redundant style attributes. only
+      /// tokens with non-default colors (keywords, types, etc.) get styled.
       if (token.color && token.color.toLowerCase() !== "#24292e") {
         html += `<span style="color:${token.color}">${escapeHtml(token.content)}</span>`;
       } else {
@@ -184,6 +189,11 @@ export function renderToken(
       }
     }
     
+    /// three cases for building the href: same file (just an anchor), another
+    /// project file (compute a relative path between their html outputs), or
+    /// a fallback that naively converts the .ts path to .html (used in
+    /// single-file mode where there's no project structure to compute
+    /// relative paths against).
     let href: string;
     if (token.definitionFile === currentFile) {
       href = `#${anchor}`;

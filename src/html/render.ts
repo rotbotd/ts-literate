@@ -131,6 +131,10 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     const start = span.textSpan.start;
     const length = span.textSpan.length;
     const text = sourceFile.text.slice(start, start + length);
+    /// the syntactic classification gives us one class (e.g., "identifier").
+    /// if there's a semantic classification at the same position, we add that
+    /// too (e.g., "function"). the token ends up with classes like
+    /// `ts-identifier ts-function`, and the CSS can target either or both.
     const classes = [span.classificationType.toLowerCase().replace(/ /g, "-")];
     
     const semType = semanticTypes.get(start);
@@ -159,6 +163,9 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
           }
         }
         
+        /// if the definition points back to exactly where we are — same file,
+        /// same position — then this token IS the definition. we register it
+        /// in the shared definitions map so other files can link here.
         if (def.fileName === filename && def.textSpan.start === start) {
           token.isDefinition = true;
           const pos = sourceFile.getLineAndCharacterOfPosition(start);
@@ -196,8 +203,14 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
   const layerEnd = layer.offset + layer.originalLength;
   
   for (const token of tokens) {
+    /// tokens from the classifier might extend beyond the current layer's
+    /// boundaries (the classifier doesn't know about our layer system).
+    /// we skip any that fall outside.
     if (token.start < layer.offset || token.start >= layerEnd) continue;
     
+    /// between consecutive tokens, there's often plain text that the
+    /// classifier didn't bother tagging — whitespace, some punctuation,
+    /// etc. we emit it as plain escaped html to fill the gaps.
     if (token.start > pos) {
       const gap = sourceFile.text.slice(pos, token.start);
       result += escapeHtml(gap);
