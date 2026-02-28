@@ -157,6 +157,12 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
         token.definitionId = defId;
         token.definitionFile = def.fileName;
         
+        /// if this definition lives outside our project (not in `knownFiles`),
+        /// it's an external — something in `node_modules` or typescript's
+        /// own lib files. we track these so the CLI can optionally generate
+        /// html pages for them too, making the cross-file links resolve.
+        /// without `--externals`, these references will just degrade to
+        /// plain spans in `renderToken`.
         if (ctx.externalFiles && ctx.knownFiles && !ctx.knownFiles.has(def.fileName)) {
           if (ctx.includeExternals) {
             ctx.externalFiles.add(def.fileName);
