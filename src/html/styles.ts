@@ -27,9 +27,9 @@ body {
   line-height: 1.6;
 }
 
-/// the watermark is a subtle header with an "index" link on the left
-/// and "ts-literate" branding on the right. it uses \`pointer-events: none\`
-/// so it doesn't interfere with the content underneath.
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
 .watermark {
   position: absolute;
   top: 0;
@@ -60,19 +60,19 @@ body {
   font-style: italic;
 }
 
-/// the \`.literate\` container constrains prose to 80ch width, which is
-/// a comfortable reading measure for proportional fonts.
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
 .literate {
   font-size: 15px;
   max-width: 80ch;
   margin: 0 auto;
 }
 
-/// ## prose styles
-///
-/// prose sections get full markdown styling — headings, lists, blockquotes,
-/// code blocks (within prose, these are fenced code blocks highlighted by
-/// shiki), tables, etc.
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
 .prose {
   margin: 1.5rem 0;
 }
@@ -213,12 +213,12 @@ body {
   height: auto;
 }
 
-/// ## code block styles
-///
-/// code blocks (the actual typescript source, not fenced code in prose)
-/// use the full-width breakout technique. the negative margins and calc
-/// values make the code extend to the viewport edges while keeping the
-/// text aligned with the prose column.
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
 pre.code {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
@@ -234,19 +234,19 @@ pre.code {
   overflow-x: auto;
 }
 
-/// ## syntax highlighting colors
-///
-/// these follow the github-light theme from VS Code / shiki:
-///
-/// | color     | usage                              |
-/// |-----------|------------------------------------|
-/// | \`#d73a49\` | keywords, operators, storage       |
-/// | \`#6f42c1\` | functions, classes, types (purple)  |
-/// | \`#005cc5\` | constants, properties (blue)        |
-/// | \`#032f62\` | strings                            |
-/// | \`#6a737d\` | comments                           |
-/// | \`#22863a\` | jsx tags (green)                   |
-/// | \`#24292e\` | default text                       |
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
 
 /* syntactic tokens */
 .ts-keyword { color: #d73a49; }
@@ -288,11 +288,11 @@ pre.code {
 .ts-module-name { color: #6f42c1; }
 .ts-parameter-name { color: #24292e; }
 
-/// ## hover highlighting
-///
-/// when you mouse over any identifier, all other references to the same
-/// definition light up with a yellow background. this makes it easy to
-/// see at a glance where a variable is used.
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
 /* hover highlight */
 .hover-highlight {
   background: #fff3cd;
@@ -309,12 +309,12 @@ a:hover {
   background: #e8f4ff;
 }
 
-/// ## tooltip styles
-///
-/// the quickinfo tooltip appears on hover and shows type information
-/// (the same thing VS Code shows). it uses \`position: fixed\` with a
-/// CSS transform for GPU-accelerated positioning, and fades in/out
-/// with a short opacity transition.
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
 /* quickinfo tooltip - using transform for GPU acceleration */
 #tooltip {
   position: fixed;

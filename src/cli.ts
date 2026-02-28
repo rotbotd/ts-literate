@@ -25,6 +25,32 @@ import { basename, dirname, join, relative, resolve } from "path";
 import { createServer } from "http";
 import { generateHtml, generateHtmlMulti } from "./html.js";
 
+/// if there's a `package.json` in the project root, we read it to get
+/// the package name and repository url. these show up in the watermark
+/// header on every generated page — the name replaces the generic
+/// "ts-literate" branding, and the repo url makes it a clickable link.
+function readPackageJson(dir: string): { name?: string; repoUrl?: string } {
+  const pkgPath = join(dir, "package.json");
+  if (!existsSync(pkgPath)) return {};
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    let repoUrl: string | undefined;
+    if (typeof pkg.repository === "string") {
+      repoUrl = pkg.repository;
+    } else if (pkg.repository?.url) {
+      /// npm's `repository.url` field often looks like
+      /// `git+https://github.com/user/repo.git`. we strip the
+      /// `git+` prefix and `.git` suffix to get a clean browser url.
+      repoUrl = pkg.repository.url
+        .replace(/^git\+/, "")
+        .replace(/\.git$/, "");
+    }
+    return { name: pkg.name, repoUrl };
+  } catch {
+    return {};
+  }
+}
+
 const args = process.argv.slice(2);
 
 if (args.length < 2) {
@@ -63,9 +89,12 @@ switch (command) {
       /// this lets you pipe it wherever you want: into a file, into
       /// another tool, into `/dev/null` if you're feeling nihilistic.
       const source = readFileSync(target, "utf-8");
+      const pkg = readPackageJson(dirname(resolve(target)));
       const { html } = await generateHtml(target, source, {
         title: basename(target, ".ts"),
-        includeHighlightScript: true
+        includeHighlightScript: true,
+        packageName: pkg.name,
+        repoUrl: pkg.repoUrl,
       });
       console.log(html);
     } else if (stat.isDirectory()) {
@@ -81,10 +110,13 @@ switch (command) {
         fileMap.set(resolve(file), readFileSync(file, "utf-8"));
       }
 
+      const pkg = readPackageJson(projectRoot);
       const result = await generateHtmlMulti(fileMap, {
         includeHighlightScript: true,
         projectRoot,
-        includeExternals
+        includeExternals,
+        packageName: pkg.name,
+        repoUrl: pkg.repoUrl,
       });
 
       const outputDir = outDir ?? join(target, "html");
@@ -218,11 +250,14 @@ async function processExternals(externalFiles: Set<string>, projectRoot: string,
   /// we already have an index page from the main build, so we skip
   /// generating another one. the externals just need their html pages
   /// so the cross-file links have somewhere to land.
+  const pkg = readPackageJson(projectRoot);
   const result = await generateHtmlMulti(allExternals, {
     includeHighlightScript: true,
     projectRoot,
     includeExternals: true,
-    skipIndex: true
+    skipIndex: true,
+    packageName: pkg.name,
+    repoUrl: pkg.repoUrl,
   });
 
   for (const [filename, html] of result.files) {
@@ -275,10 +310,13 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
   /// the initial build generates html for every file at once. this is
   /// slower than incremental rebuilds but ensures all cross-file links
   /// are correct from the start.
+  const pkg = readPackageJson(projectRoot);
   const result = await generateHtmlMulti(fileMap, {
     includeHighlightScript: true,
     projectRoot,
-    includeExternals
+    includeExternals,
+    packageName: pkg.name,
+    repoUrl: pkg.repoUrl,
   });
 
   mkdirSync(outputDir, { recursive: true });
@@ -467,10 +505,13 @@ async function regenerateFiles(
     fileMap.set(path, content);
   }
 
+  const pkg = readPackageJson(projectRoot);
   const result = await generateHtmlMulti(fileMap, {
     includeHighlightScript: true,
     projectRoot,
-    includeExternals
+    includeExternals,
+    packageName: pkg.name,
+    repoUrl: pkg.repoUrl,
   });
 
   let writtenCount = 0;
