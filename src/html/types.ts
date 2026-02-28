@@ -29,6 +29,14 @@ export interface HtmlOptions {
   /// skip generating `index.html`. used internally when processing
   /// external files (since the main files already made an index).
   skipIndex?: boolean;
+  /// the name to show in the top-right watermark. if omitted, defaults
+  /// to "ts-literate". the CLI reads this from `package.json`'s `name`
+  /// field so the generated pages feel like they belong to your project.
+  packageName?: string;
+  /// url to link the watermark name to. the CLI reads this from
+  /// `package.json`'s `repository` field. if omitted, the watermark
+  /// is plain text instead of a link.
+  repoUrl?: string;
 }
 
 /// when you generate html for a single file, you get back the html string

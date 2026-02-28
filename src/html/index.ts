@@ -217,6 +217,13 @@ function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInf
   /// becomes just `foo.ts`. nobody wants a browser tab that says the full absolute path.
   const displayTitle = title.includes("/") ? title.split("/").pop()! : title;
 
+  /// the watermark in the top-right corner shows the package name (or
+  /// "ts-literate" as a fallback). if there's a repo url, it becomes a link.
+  const watermarkName = escapeHtml(options.packageName ?? "ts-literate");
+  const watermarkRight = options.repoUrl
+    ? `<a href="${escapeHtml(options.repoUrl)}">${watermarkName}</a>`
+    : watermarkName;
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -228,7 +235,7 @@ function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInf
 ${tooltipSetupScript}
 <header class="watermark">
   <a href="/" class="watermark-left">index</a>
-  <span class="watermark-right"><a href="https://github.com/rotbotd/ts-literate">ts-literate</a></span>
+  <span class="watermark-right">${watermarkRight}</span>
 </header>
 <div class="literate">
 ${body}
