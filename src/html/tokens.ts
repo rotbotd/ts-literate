@@ -73,6 +73,10 @@ import type { HighlighterGeneric, BundledLanguage, BundledTheme } from "shiki";
 
 let highlighter: HighlighterGeneric<BundledLanguage, BundledTheme> | null = null;
 
+/// the tooltip highlighter is separate from the prose highlighter in
+/// `prose.ts` — it only needs the typescript grammar since tooltips
+/// are always type signatures. we dynamic-import shiki to avoid paying
+/// the cost if nobody ever calls this.
 export async function initHighlighter(): Promise<void> {
   if (highlighter) return;
   const { createHighlighter } = await import("shiki");
