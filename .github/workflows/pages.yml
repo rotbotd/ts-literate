@@ -34,7 +34,7 @@ jobs:
         run: bun run build
 
       - name: Run ts-literate on itself
-        run: bun run src/cli.ts html src/ _site/
+        run: bun run src/cli.ts html src/ _site/ --externals
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

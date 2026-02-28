@@ -228,7 +228,7 @@ function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInf
 ${tooltipSetupScript}
 <header class="watermark">
   <a href="/" class="watermark-left">index</a>
-  <span class="watermark-right">ts-literate</span>
+  <span class="watermark-right"><a href="https://github.com/rotbotd/ts-literate">ts-literate</a></span>
 </header>
 <div class="literate">
 ${body}

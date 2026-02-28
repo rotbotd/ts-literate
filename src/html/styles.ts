@@ -48,6 +48,7 @@ body {
   color: #ccc;
   text-decoration: none;
   border-bottom: none;
+  pointer-events: auto;
 }
 
 .watermark a:hover {
