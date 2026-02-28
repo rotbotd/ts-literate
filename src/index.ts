@@ -10,8 +10,6 @@
 /// numbers so that typescript error messages still point to the right place
 /// in your original file.
 ///
-/// ## exports
-///
 /// the library has two main capabilities:
 ///
 /// 1. **extraction** — parsing `///` comments out of typescript source and

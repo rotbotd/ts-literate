@@ -30,9 +30,7 @@ export interface Layer {
   originalLength: number;
 }
 
-/// ## extractLayers
-///
-/// the main parsing function. we walk through the file line by line,
+/// the parser walks through the file line by line,
 /// accumulating consecutive lines of the same role into a single layer.
 /// when the role switches (code → prose or prose → code), we flush the
 /// current accumulator and start a new layer.

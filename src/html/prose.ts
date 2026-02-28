@@ -15,11 +15,10 @@ import { createHighlighter, type HighlighterGeneric, type BundledLanguage, type 
 
 let marked: Marked | null = null;
 
-/// ## initMarked
-///
-/// lazy initialization of the marked + shiki pipeline. we only create
-/// the highlighter once (it loads wasm grammars, so it's expensive)
-/// and reuse it for all prose blocks.
+/// shiki loads textmate grammars as wasm modules, which is expensive —
+/// you don't want to do it once per prose block. so we initialize the
+/// whole marked + shiki pipeline once and reuse it. the first call to
+/// `renderProse` pays the startup cost; every subsequent call is cheap.
 
 export async function initMarked(): Promise<void> {
   if (marked) return;
@@ -43,12 +42,11 @@ export async function initMarked(): Promise<void> {
   }));
 }
 
-/// ## renderProse
-///
-/// takes a markdown string (already stripped of `///` markers) and
-/// returns an html string wrapped in `<div class="prose">`. the prose
-/// class gets styled differently from code blocks — proportional font,
-/// wider line height, etc.
+/// with the pipeline set up, rendering a prose block is just a matter of
+/// feeding the markdown string (already stripped of `///` markers) through
+/// marked and wrapping the result in a `<div class="prose">`. the wrapper
+/// is important — it scopes the prose styles (proportional font, wider
+/// line height, paragraph spacing) so they don't leak into the code blocks.
 
 export async function renderProse(content: string): Promise<string> {
   if (!marked) {

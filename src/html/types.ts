@@ -5,10 +5,10 @@
 /// `index.ts`, `render.ts`, and `tokens.ts` all agree on the same
 /// structures.
 
-/// ## HtmlOptions
-///
-/// controls how html is generated. most fields are optional with
-/// sensible defaults.
+/// most of the time you just want the defaults — inline styles, hover
+/// highlighting, the filename as the page title. but when you need control,
+/// these options let you customize the output without touching the rendering
+/// pipeline.
 export interface HtmlOptions {
   /// path to an external CSS file. if omitted, styles are inlined
   /// directly into the `<style>` tag of each generated page.
@@ -31,9 +31,10 @@ export interface HtmlOptions {
   skipIndex?: boolean;
 }
 
-/// ## HtmlResult
-///
-/// the output of single-file generation.
+/// when you generate html for a single file, you get back the html string
+/// plus a map of all the definitions found in that file. the definition map
+/// is how multi-file mode knows where to link references — file A discovers
+/// its definitions, file B can link to them.
 export interface HtmlResult {
   html: string;
   /// a map from definition id (like `"file.ts:42"`) to its source location.
@@ -41,10 +42,10 @@ export interface HtmlResult {
   definitions: Map<string, { file: string; line: number; column: number }>;
 }
 
-/// ## MultiFileResult
-///
-/// the output of multi-file generation. each input `.ts` file maps to a
-/// generated `.html` string, plus an index page.
+/// multi-file generation produces a richer result: a map from each input
+/// file to its generated html, plus the combined definition map spanning
+/// all files. it also tracks external files that were referenced, in case
+/// you want to generate html for those too.
 export interface MultiFileResult {
   files: Map<string, string>;
   definitions: Map<string, { file: string; line: number; column: number }>;
@@ -53,12 +54,11 @@ export interface MultiFileResult {
   externalFiles: Set<string>;
 }
 
-/// ## TokenInfo
-///
-/// describes a single token we want to render in the html output. the
-/// html renderer collects these from the typescript language service,
-/// enriches them with definition info and hover tooltips, then renders
-/// each one as an `<a>` (if it's linkable) or `<span>`.
+/// the rendering pipeline works token by token. for each token the
+/// language service identifies, we build one of these — collecting the
+/// text, the CSS classes, where it's defined, and what the hover tooltip
+/// should say. then `renderToken` turns it into html: an `<a>` if it
+/// can be linked, a `<span>` otherwise.
 export interface TokenInfo {
   start: number;
   length: number;

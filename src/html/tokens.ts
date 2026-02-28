@@ -63,12 +63,11 @@ export function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/// ## quickinfo highlighting
-///
-/// when you hover over a token, we show a tooltip with the type
-/// information from `getQuickInfoAtPosition`. that text is itself
-/// typescript (e.g. `"(property) foo: string"`), so we syntax-highlight
-/// it with shiki to match the rest of the page.
+/// when you hover over a token in the generated html, we show the same
+/// type information VS Code would — things like `(property) foo: string`
+/// or `function bar<T>(x: T): T`. that text is itself typescript, so it
+/// deserves syntax highlighting too. we use a second shiki instance just
+/// for tooltips.
 
 import type { HighlighterGeneric, BundledLanguage, BundledTheme } from "shiki";
 

@@ -166,15 +166,15 @@ export async function generateHtmlMulti(files: Map<string, string>, options: Htm
   return { files: results, definitions: allDefinitions, externalFiles };
 }
 
-/// ## wrapHtml
+/// once we've rendered all the layers into a body string, we need to wrap
+/// it in a real html document — `<head>`, styles, scripts, the works.
 ///
-/// wraps a rendered body (code + prose html) in a full html document
-/// with styles, scripts, and quickinfo tooltip templates.
-///
-/// the quickinfo templates are hidden `<template>` elements that the
-/// client-side tooltip script clones on hover. this is more efficient
-/// than storing the tooltip text in data attributes (which would bloat
-/// the html significantly for large files).
+/// one interesting design choice here: tooltip content. we could store type
+/// signatures in `data-` attributes on each token, but for a file with
+/// hundreds of identifiers, that would bloat the html significantly (type
+/// signatures can be long). instead, we emit hidden `<template>` elements
+/// at the bottom of the page. the client-side script clones the right
+/// template on hover. same result, much smaller html.
 
 function wrapHtml(body: string, options: HtmlOptions, filename: string, quickInfoMap: Map<string, string>): string {
   const title = options.title ?? filename;
