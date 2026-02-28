@@ -20,10 +20,14 @@
 ///   reveal structure on demand without cluttering the default view.
 
 export const defaultCss = `
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: system-ui, sans-serif;
   margin: 0;
-  padding: 2rem 0;
+  padding: 2rem 1rem;
   line-height: 1.6;
 }
 
@@ -67,7 +71,6 @@ body {
   font-size: 15px;
   max-width: 80ch;
   margin: 0 auto;
-  padding: 0 1rem;
 }
 
 /* prose styles
@@ -228,6 +231,10 @@ pre.code {
   background: #f6f8fa;
   padding: 1rem;
   margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
   overflow-x: auto;
 }
 
