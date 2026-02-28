@@ -232,6 +232,9 @@ export function renderCodeBlock(ctx: RenderContext, layer: Layer): string {
     pos = token.start + token.length;
   }
   
+  /// after the last token, there might still be trailing text — a closing
+  /// brace, a newline, whitespace the classifier didn't cover. we flush
+  /// whatever's left between the last token's end and the layer boundary.
   if (pos < layerEnd) {
     const gap = sourceFile.text.slice(pos, layerEnd);
     result += escapeHtml(gap);
