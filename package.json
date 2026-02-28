@@ -1,0 +1,30 @@
+{
+  "name": "ts-literate",
+  "version": "0.0.1",
+  "description": "Literate programming for TypeScript. Turn /// comments into prose documentation.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "ts-literate": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rotbotd/ts-literate.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "marked": "^17.0.1",
+    "marked-shiki": "^1.2.1",
+    "shiki": "^3.20.0",
+    "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "vitest": "^2.1.8"
+  }
+}
