@@ -39,6 +39,11 @@ const semanticTokenTypes = [
   "function", "method"
 ];
 
+/// the encoding packs the token type into the upper bits: shift right by 8,
+/// subtract 1 (it's 1-indexed for some reason), and you get an index into
+/// the array above. if the index is out of range, it's a token type we
+/// don't recognize — we return undefined and it just won't get a semantic
+/// class.
 function decodeSemanticClassification(encoded: number): string | undefined {
   const typeIdx = (encoded >> 8) - 1;
   if (typeIdx >= 0 && typeIdx < semanticTokenTypes.length) {
