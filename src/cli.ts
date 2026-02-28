@@ -332,6 +332,10 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
       return;
     }
 
+    /// the file genuinely changed. we add it to the pending set and reset
+    /// the debounce timer. if another file changes within 100ms, it gets
+    /// batched into the same rebuild — this handles the "save all" case
+    /// where an editor writes 10 files in quick succession.
     pendingChanges.add(absPath);
     fileCache.set(absPath, newContent);
 
@@ -339,6 +343,9 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
       clearTimeout(debounceTimer);
     }
 
+    /// when the 100ms quiet period expires, we drain the pending set and
+    /// kick off a rebuild. this runs async — if more changes come in while
+    /// we're rebuilding, they'll queue up for the next batch.
     debounceTimer = setTimeout(async () => {
       const changedFiles = [...pendingChanges];
       pendingChanges.clear();
