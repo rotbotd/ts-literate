@@ -306,10 +306,11 @@ async function startServer(srcDir: string, outDir: string, port: number): Promis
   /// trigger save events without real changes), then add it to the pending
   /// set and start the debounce timer.
   console.log("watching for changes...");
+  /// node's `fs.watch` fires a callback for every filesystem event in the
+  /// tree. most of them are noise — editor temp files, `.js` output, git
+  /// operations. we filter down to just `.ts` source files, check if
+  /// they've actually changed, and if so, add them to a debounced batch.
   watch(srcDir, { recursive: true }, async (event, filename) => {
-    /// we only care about `.ts` files (not `.d.ts`, not `.js`, not anything
-    /// else). and sometimes the watcher fires for files that were deleted
-    /// mid-operation, so we check existence too.
     if (!filename || !filename.endsWith(".ts") || filename.endsWith(".d.ts")) {
       return;
     }
