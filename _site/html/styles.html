@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>styles.ts</title>
+  <style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > ul, .prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+</style>
+</head>
+<body>
+<script>
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+</script>
+<header class="watermark">
+  <a href="/" class="watermark-left">index</a>
+  <span class="watermark-right">ts-literate</span>
+</header>
+<div class="literate">
+<div class="prose"><h1>CSS and JavaScript assets</h1>
+<p>all the styles and client-side scripts are defined here as template
+literals. they get inlined directly into each generated html page
+(unless you provide an external CSS file via the <code>cssFile</code> option).</p>
+<h2>design philosophy</h2>
+<p>the visual design follows a few principles:</p>
+<ul>
+<li><strong>code blocks go full-width</strong> — they break out of the prose column
+using negative margins (<code>calc(-50vw + 50%)</code>). this gives code room
+to breathe while keeping prose at a comfortable reading width.</li>
+<li><strong>github-light color scheme</strong> — the syntax highlighting colors match
+VS Code&#39;s github-light theme, which is what most people associate
+with &quot;github-style&quot; code rendering.</li>
+<li><strong>minimal chrome</strong> — no line numbers, no copy buttons, no file
+headers. just code and prose flowing together.</li>
+<li><strong>interactive but not flashy</strong> — hover highlighting and tooltips
+reveal structure on demand without cluttering the default view.</li>
+</ul>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-styles-ts-1016" href="#def--root-ts-literate-src-html-styles-ts-1016" class="ts-identifier ts-variable">defaultCss</a> <span class="ts-operator">=</span> <span class="ts-string">`
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an &quot;index&quot; link on the left
+   and &quot;ts-literate&quot; branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li &gt; ul, .prose li &gt; ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote &gt; :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote &gt; :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+`</span><span class="ts-punctuation">;</span></pre><div class="prose"><h2>tooltip script</h2>
+<p>the tooltip works by looking up <code>&lt;template&gt;</code> elements by id. when you
+hover over a token that has an id attribute, we look for a corresponding
+<code>&lt;template id=&quot;qi-{id}&quot;&gt;</code> element and clone its content into the tooltip
+div. this is efficient because we avoid storing potentially large type
+signatures as data attributes.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-styles-ts-7994" href="#def--root-ts-literate-src-html-styles-ts-7994" class="ts-identifier ts-variable">tooltipScript</a> <span class="ts-operator">=</span> <span class="ts-string">`
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+`</span><span class="ts-punctuation">;</span></pre><div class="prose"><h2>hover highlight script</h2>
+<p>this script builds a map from href → set of elements. when you hover
+over any link, it finds all other links with the same href (i.e., all
+references to the same definition) and adds the <code>hover-highlight</code> class.
+this creates the &quot;light up all usages&quot; effect.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-styles-ts-9385" href="#def--root-ts-literate-src-html-styles-ts-9385" class="ts-identifier ts-variable">highlightScript</a> <span class="ts-operator">=</span> <span class="ts-string">`
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i &lt; objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i &lt; objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+`</span><span class="ts-punctuation">;</span></pre>
+</div>
+<script>
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+</script>
+<div id="quickinfo-templates" style="display:none">
+<template id="qi-t0"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defaultCss</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">body {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: system-ui, sans-serif;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 2rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.6;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* the watermark is a subtle header with an </span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62">index</span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62"> link on the left</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   and </span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62">ts-literate</span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62"> branding on the right. it uses pointer-events: none</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   so it doesn't interfere with the content underneath. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.watermark {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  position: absolute;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  left: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  right: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  display: flex;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  justify-content: space-between;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 12px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  z-index: 100;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #999;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark-right {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-style: italic;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* the .literate container constrains prose to 80ch width, which is</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   a comfortable reading measure for proportional fonts. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.literate {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 15px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 80ch;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0 auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* prose styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   prose sections get full markdown styling — headings, lists, blockquotes,</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   code blocks (within prose, these are fenced code blocks highlighted by</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   shiki), tables, etc. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.prose {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h1 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.8rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 2rem 0 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: 1px solid #eee;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-bottom: 0.3rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h2 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.4rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0 0.75rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h3 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose p {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h4 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h5, .prose h6 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 0.9rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose ul, .prose ol {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-left: 1.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose li {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.25rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose li &gt; ul, .prose li &gt; ol {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.25rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-left: 4px solid #dfe2e5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #6a737d;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote &gt; :first-child {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote &gt; :last-child {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-bottom: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 0.9em;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.2em 0.4em;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 3px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose pre {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 14px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 6px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  overflow-x: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose pre code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: inherit;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose hr {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-top: 1px solid #eee;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose table {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-collapse: collapse;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose th, .prose td {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: 1px solid #dfe2e5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 0.75rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-align: left;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose th {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose tr:nth-child(even) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose strong {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose em {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-style: italic;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #0366d6;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: underline;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose img {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  height: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* code block styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   code blocks (the actual typescript source, not fenced code in prose)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   use the full-width breakout technique. the negative margins and calc</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   values make the code extend to the viewport edges while keeping the</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   text aligned with the prose column. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">pre.code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 14px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.5rem -1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-left: calc(-50vw + 50%);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-right: calc(-50vw + 50%);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-left: calc(50vw - 50% + 1rem);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-right: calc(50vw - 50% + 1rem);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  overflow-x: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntax highlighting colors</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   these follow the github-light theme from VS Code / shiki:</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   color     | usage</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   ----------|------------------------------------</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #d73a49   | keywords, operators, storage</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #6f42c1   | functions, classes, types (purple)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #005cc5   | constants, properties (blue)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #032f62   | strings</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #6a737d   | comments</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #22863a   | jsx tags (green)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #24292e   | default text */</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntactic tokens */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-keyword { color: #d73a49; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-operator { color: #d73a49; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-string { color: #032f62; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-number { color: #005cc5; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-comment { color: #6a737d; font-style: italic; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-identifier { color: #24292e; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-punctuation { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - entity names purple */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-class { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-interface { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type-parameter { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-namespace { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-function { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-method { color: #6f42c1; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - constants blue */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-property { color: #005cc5; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum-member { color: #005cc5; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - variables default (variable.other scope) */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-variable { color: #24292e; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-parameter { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* jsx tags green */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-open-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-close-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-self-closing-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntactic fallbacks for declarations */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-class-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-interface-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type-parameter-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-module-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-parameter-name { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* hover highlighting</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   when you mouse over any identifier, all other references to the same</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   definition light up with a yellow background. this makes it easy to</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   see at a glance where a variable is used. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">/* hover highlight */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.hover-highlight {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #fff3cd;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 2px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: inherit;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: 1px dotted #888;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #e8f4ff;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* tooltip styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   the quickinfo tooltip appears on hover and shows type information</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   (the same thing VS Code shows). it uses position: fixed with a</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   CSS transform for GPU-accelerated positioning, and fades in/out</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   with a short opacity transition. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">/* quickinfo tooltip - using transform for GPU acceleration */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">#tooltip {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  position: fixed;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  left: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #fff;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #333;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 11px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.25rem 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 3px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: 1px solid #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 50vw;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  white-space: pre-wrap;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  opacity: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  transition: opacity 0.1s;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  z-index: 1000;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  will-change: transform;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">#tooltip.visible {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  opacity: 1;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">&quot;</span> ...</template>
+<template id="qi-def--root-ts-literate-src-html-styles-ts-1016"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defaultCss</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">body {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: system-ui, sans-serif;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 2rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.6;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* the watermark is a subtle header with an </span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62">index</span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62"> link on the left</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   and </span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62">ts-literate</span><span style="color:#005CC5">\&quot;</span><span style="color:#032F62"> branding on the right. it uses pointer-events: none</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   so it doesn't interfere with the content underneath. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.watermark {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  position: absolute;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  left: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  right: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  display: flex;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  justify-content: space-between;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 12px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  z-index: 100;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #999;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.watermark-right {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-style: italic;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* the .literate container constrains prose to 80ch width, which is</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   a comfortable reading measure for proportional fonts. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.literate {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 15px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 80ch;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0 auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* prose styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   prose sections get full markdown styling — headings, lists, blockquotes,</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   code blocks (within prose, these are fenced code blocks highlighted by</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   shiki), tables, etc. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.prose {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h1 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.8rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 2rem 0 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: 1px solid #eee;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-bottom: 0.3rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h2 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.4rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0 0.75rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h3 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1.1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose p {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h4 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose h5, .prose h6 {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 0.9rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose ul, .prose ol {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-left: 1.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose li {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.25rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose li &gt; ul, .prose li &gt; ol {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.25rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-left: 4px solid #dfe2e5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #6a737d;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote &gt; :first-child {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose blockquote &gt; :last-child {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-bottom: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 0.9em;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.2em 0.4em;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 3px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose pre {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 14px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.75rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 6px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  overflow-x: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose pre code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: inherit;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose hr {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-top: 1px solid #eee;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1.5rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose table {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-collapse: collapse;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 1rem 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose th, .prose td {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: 1px solid #dfe2e5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.5rem 0.75rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-align: left;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose th {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose tr:nth-child(even) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose strong {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-weight: 600;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose em {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-style: italic;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #0366d6;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: underline;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">.prose img {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  height: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* code block styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   code blocks (the actual typescript source, not fenced code in prose)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   use the full-width breakout technique. the negative margins and calc</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   values make the code extend to the viewport edges while keeping the</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   text aligned with the prose column. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">pre.code {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 14px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  line-height: 1.5;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #f6f8fa;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin: 0.5rem -1rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-left: calc(-50vw + 50%);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  margin-right: calc(-50vw + 50%);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-left: calc(50vw - 50% + 1rem);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding-right: calc(50vw - 50% + 1rem);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  width: 100%;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  overflow-x: auto;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntax highlighting colors</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   these follow the github-light theme from VS Code / shiki:</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   color     | usage</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   ----------|------------------------------------</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #d73a49   | keywords, operators, storage</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #6f42c1   | functions, classes, types (purple)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #005cc5   | constants, properties (blue)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #032f62   | strings</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #6a737d   | comments</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #22863a   | jsx tags (green)</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   #24292e   | default text */</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntactic tokens */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-keyword { color: #d73a49; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-operator { color: #d73a49; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-string { color: #032f62; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-number { color: #005cc5; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-comment { color: #6a737d; font-style: italic; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-identifier { color: #24292e; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-punctuation { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - entity names purple */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-class { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-interface { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type-parameter { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-namespace { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-function { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-method { color: #6f42c1; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - constants blue */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-property { color: #005cc5; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum-member { color: #005cc5; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* semantic tokens - variables default (variable.other scope) */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-variable { color: #24292e; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-parameter { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* jsx tags green */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-open-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-close-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-jsx-self-closing-tag-name { color: #22863a; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* syntactic fallbacks for declarations */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-class-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-interface-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-enum-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-type-parameter-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-module-name { color: #6f42c1; }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.ts-parameter-name { color: #24292e; }</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* hover highlighting</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   when you mouse over any identifier, all other references to the same</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   definition light up with a yellow background. this makes it easy to</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   see at a glance where a variable is used. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">/* hover highlight */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">.hover-highlight {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #fff3cd;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 2px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">a {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: inherit;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  text-decoration: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-bottom: 1px dotted #888;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">a:hover {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #e8f4ff;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">/* tooltip styles</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">   the quickinfo tooltip appears on hover and shows type information</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   (the same thing VS Code shows). it uses position: fixed with a</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   CSS transform for GPU-accelerated positioning, and fades in/out</span><span style="color:#005CC5">\n</span><span style="color:#032F62">   with a short opacity transition. */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">/* quickinfo tooltip - using transform for GPU acceleration */</span><span style="color:#005CC5">\n</span><span style="color:#032F62">#tooltip {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  position: fixed;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  top: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  left: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  background: #fff;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  color: #333;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  font-size: 11px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  padding: 0.25rem 0.5rem;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border-radius: 3px;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  border: 1px solid #ccc;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  max-width: 50vw;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  white-space: pre-wrap;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  pointer-events: none;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  opacity: 0;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  transition: opacity 0.1s;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  z-index: 1000;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  will-change: transform;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">#tooltip.visible {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  opacity: 1;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">}</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">&quot;</span> ...</template>
+<template id="qi-t1"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tooltipScript</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">(function() {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  var tooltip = document.createElement('div');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  tooltip.id = 'tooltip';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.body.appendChild(tooltip);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function showTooltip(id) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var tmpl = document.getElementById('qi-' + id);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (tmpl) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.textContent = '';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.appendChild(tmpl.content.cloneNode(true));</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.classList.add('visible');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function hideTooltip() {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    tooltip.classList.remove('visible');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function positionTooltip(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mouseover', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var el = e.target.closest('[id]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (el) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      positionTooltip(e);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      showTooltip(el.id);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mousemove', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (tooltip.classList.contains('visible')) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      positionTooltip(e);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mouseout', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var el = e.target.closest('[id]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (el) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      hideTooltip();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">})();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">&quot;</span></template>
+<template id="qi-def--root-ts-literate-src-html-styles-ts-7994"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tooltipScript</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">(function() {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  var tooltip = document.createElement('div');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  tooltip.id = 'tooltip';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.body.appendChild(tooltip);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function showTooltip(id) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var tmpl = document.getElementById('qi-' + id);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (tmpl) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.textContent = '';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.appendChild(tmpl.content.cloneNode(true));</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      tooltip.classList.add('visible');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function hideTooltip() {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    tooltip.classList.remove('visible');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  function positionTooltip(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mouseover', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var el = e.target.closest('[id]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (el) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      positionTooltip(e);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      showTooltip(el.id);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mousemove', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (tooltip.classList.contains('visible')) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      positionTooltip(e);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  document.addEventListener('mouseout', function(e) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var el = e.target.closest('[id]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    if (el) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      hideTooltip();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">})();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">&quot;</span></template>
+<template id="qi-t2"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlightScript</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">var dict = new Map();</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">window.onload = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  var objs = document.querySelectorAll('a[href]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  for (var i = 0; i &lt; objs.length; i++) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var obj = objs[i];</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var key = obj.href;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var set = dict.get(key) || new Set();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    set.add(obj);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    dict.set(key, set);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  for (var i = 0; i &lt; objs.length; i++) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var obj = objs[i];</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    obj.onmouseover = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      var s = dict.get(this.href);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    obj.onmouseout = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      var s = dict.get(this.href);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">};</span><span style="color:#005CC5">\n</span><span style="color:#032F62">&quot;</span></template>
+<template id="qi-def--root-ts-literate-src-html-styles-ts-9385"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlightScript</span><span style="color:#D73A49">:</span> <span style="color:#032F62">&quot;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">var dict = new Map();</span><span style="color:#005CC5">\n\n</span><span style="color:#032F62">window.onload = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  var objs = document.querySelectorAll('a[href]');</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  for (var i = 0; i &lt; objs.length; i++) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var obj = objs[i];</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var key = obj.href;</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var set = dict.get(key) || new Set();</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    set.add(obj);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    dict.set(key, set);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  </span><span style="color:#005CC5">\n</span><span style="color:#032F62">  for (var i = 0; i &lt; objs.length; i++) {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    var obj = objs[i];</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    obj.onmouseover = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      var s = dict.get(this.href);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    obj.onmouseout = function () {</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      var s = dict.get(this.href);</span><span style="color:#005CC5">\n</span><span style="color:#032F62">      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });</span><span style="color:#005CC5">\n</span><span style="color:#032F62">    }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">  }</span><span style="color:#005CC5">\n</span><span style="color:#032F62">};</span><span style="color:#005CC5">\n</span><span style="color:#032F62">&quot;</span></template>
+</div>
+</body>
+</html>

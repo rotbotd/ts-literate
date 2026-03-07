@@ -3,10 +3,10 @@
   "version": "0.0.1",
   "description": "Literate programming for TypeScript. Turn /// comments into prose documentation.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "bin": {
-    "ts-literate": "dist/cli.js"
+    "ts-literate": "dist/src/cli.js"
   },
   "scripts": {
     "build": "tsc",

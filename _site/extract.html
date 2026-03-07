@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>extract.ts</title>
+  <style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > ul, .prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+</style>
+</head>
+<body>
+<script>
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+</script>
+<header class="watermark">
+  <a href="/" class="watermark-left">index</a>
+  <span class="watermark-right">ts-literate</span>
+</header>
+<div class="literate">
+<div class="prose"><h1>layer extraction</h1>
+<p>this is the core parsing logic. we scan a typescript file line by line,
+looking for <code>///</code> comments. lines that start with <code>///</code> (after optional
+whitespace) are classified as <strong>prose</strong> — everything else is <strong>code</strong>.</p>
+<p>the key insight is that we track byte offsets and original lengths for
+each layer. this lets us later &quot;illiterate&quot; the file (blank the prose
+lines to spaces) while keeping every character position intact, so the
+typescript compiler&#39;s error messages still point to the correct line
+and column in the original source.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">type</span> <a id="def--root-ts-literate-src-extract-ts-607" href="#def--root-ts-literate-src-extract-ts-607" class="ts-identifier ts-type">LayerRole</a> <span class="ts-punctuation">=</span> <span class="ts-string">&quot;code&quot;</span> <span class="ts-punctuation">|</span> <span class="ts-string">&quot;prose&quot;</span><span class="ts-punctuation">;</span>
+
+<span class="ts-keyword">export</span> <span class="ts-keyword">interface</span> <a id="def--root-ts-literate-src-extract-ts-655" href="#def--root-ts-literate-src-extract-ts-655" class="ts-interface-name ts-interface">Layer</a> <span class="ts-punctuation">{</span>
+  <a id="def--root-ts-literate-src-extract-ts-665" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a><span class="ts-punctuation">:</span> <a id="t3" href="#def--root-ts-literate-src-extract-ts-607" class="ts-identifier ts-type">LayerRole</a><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-extract-ts-684" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>the typescript language service doesn&#39;t think in terms of &quot;line 5&quot; or
+&quot;the third function.&quot; it thinks in byte offsets from the start of the
+file. so when we later ask it &quot;what token is at position 347?&quot;, we need
+to know where each layer lives in the original source. <code>offset</code> is that
+anchor point — the byte position where this layer begins.</p>
+</div><pre class="code">  <a id="def--root-ts-literate-src-extract-ts-1075" href="#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>here&#39;s a subtlety: for prose layers, the content we store has the <code>///</code>
+markers stripped away. <code>&quot;/// hello world&quot;</code> becomes just <code>&quot;hello world&quot;</code>.
+but the language service still sees the original file with the markers
+intact (well, blanked to spaces — more on that later). so we need to
+remember how many bytes this layer <em>actually</em> occupied in the source,
+markers and all. that&#39;s <code>originalLength</code>.</p>
+</div><pre class="code">  <a id="def--root-ts-literate-src-extract-ts-1526" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><p>the parser walks through the file line by line,
+accumulating consecutive lines of the same role into a single layer.
+when the role switches (code → prose or prose → code), we flush the
+current accumulator and start a new layer.</p>
+<p>after the initial pass, we do a merging step: if two prose sections
+are separated only by blank code lines (empty lines between <code>///</code>
+blocks), we merge them into one prose layer with the blank lines
+represented as newlines. this prevents a single paragraph that spans
+a blank line from being split into two separate rendered sections.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-extract-ts-2173" href="#def--root-ts-literate-src-extract-ts-2173" class="ts-identifier ts-function">extractLayers</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-extract-ts-2187" href="#def--root-ts-literate-src-extract-ts-2187" class="ts-parameter-name ts-parameter">source</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <a id="t9" href="#def--root-ts-literate-src-extract-ts-655" class="ts-identifier ts-interface">Layer</a><span class="ts-punctuation">[</span><span class="ts-punctuation">]</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-2222" href="#def--root-ts-literate-src-extract-ts-2222" class="ts-identifier ts-variable">layers</a><span class="ts-punctuation">:</span> <a id="t11" href="#def--root-ts-literate-src-extract-ts-655" class="ts-identifier ts-interface">Layer</a><span class="ts-punctuation">[</span><span class="ts-punctuation">]</span> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-2252" href="#def--root-ts-literate-src-extract-ts-2252" class="ts-identifier ts-variable">lines</a> <span class="ts-operator">=</span> <a id="t13" href="#def--root-ts-literate-src-extract-ts-2187" class="ts-identifier ts-parameter">source</a><span class="ts-punctuation">.</span><a id="t14" href="node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-symbol-wellknown-d-ts-9352" class="ts-identifier ts-method">split</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-2289" href="#def--root-ts-literate-src-extract-ts-2289" class="ts-identifier ts-variable">offset</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-2307" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a><span class="ts-punctuation">:</span> <a id="t17" href="#def--root-ts-literate-src-extract-ts-607" class="ts-identifier ts-type">LayerRole</a> <span class="ts-punctuation">|</span> <span class="ts-keyword">null</span> <span class="ts-operator">=</span> <span class="ts-keyword">null</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-2351" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">=</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-2378" href="#def--root-ts-literate-src-extract-ts-2378" class="ts-identifier ts-variable">currentOffset</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-2403" href="#def--root-ts-literate-src-extract-ts-2403" class="ts-identifier ts-variable">currentOriginalLength</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>as we scan lines, we accumulate content into a buffer. when the role
+switches — say we&#39;ve been reading code and hit a <code>///</code> line — we need
+to package up what we&#39;ve collected so far and start fresh. that&#39;s what
+<code>flush</code> does. it&#39;s the seam between layers.</p>
+</div><pre class="code">  <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-extract-ts-2722" href="#def--root-ts-literate-src-extract-ts-2722" class="ts-identifier ts-function">flush</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t22" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a><span class="ts-punctuation">.</span><a id="t23" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21174" class="ts-identifier ts-property">length</a> <span class="ts-operator">&gt;</span> <span class="ts-number">0</span> <span class="ts-operator">&amp;&amp;</span> <a id="t24" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a> <span class="ts-operator">!==</span> <span class="ts-keyword">null</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <a id="t25" href="#def--root-ts-literate-src-extract-ts-2222" class="ts-identifier ts-variable">layers</a><span class="ts-punctuation">.</span><a id="t26" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><span class="ts-punctuation">{</span>
+        <a id="t27" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a><span class="ts-punctuation">:</span> <a id="t28" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a><span class="ts-punctuation">,</span>
+        <a id="t29" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">:</span> <a id="t30" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a><span class="ts-punctuation">,</span>
+        <a id="t31" href="#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a><span class="ts-punctuation">:</span> <a id="t32" href="#def--root-ts-literate-src-extract-ts-2378" class="ts-identifier ts-variable">currentOffset</a><span class="ts-punctuation">,</span>
+        <a id="t33" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a><span class="ts-punctuation">:</span> <a id="t34" href="#def--root-ts-literate-src-extract-ts-2403" class="ts-identifier ts-variable">currentOriginalLength</a>
+      <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    <a id="t35" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">=</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">;</span>
+    <a id="t36" href="#def--root-ts-literate-src-extract-ts-2403" class="ts-identifier ts-variable">currentOriginalLength</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-3040" href="#def--root-ts-literate-src-extract-ts-3040" class="ts-identifier ts-variable">i</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span> <a id="t38" href="#def--root-ts-literate-src-extract-ts-3040" class="ts-identifier ts-variable">i</a> <span class="ts-operator">&lt;</span> <a id="t39" href="#def--root-ts-literate-src-extract-ts-2252" class="ts-identifier ts-variable">lines</a><span class="ts-punctuation">.</span><a id="t40" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a><span class="ts-punctuation">;</span> <a id="t41" href="#def--root-ts-literate-src-extract-ts-3040" class="ts-identifier ts-variable">i</a><span class="ts-operator">++</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-3082" href="#def--root-ts-literate-src-extract-ts-3082" class="ts-identifier ts-variable">line</a> <span class="ts-operator">=</span> <a id="t43" href="#def--root-ts-literate-src-extract-ts-2252" class="ts-identifier ts-variable">lines</a><span class="ts-punctuation">[</span><a id="t44" href="#def--root-ts-literate-src-extract-ts-3040" class="ts-identifier ts-variable">i</a><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-3109" href="#def--root-ts-literate-src-extract-ts-3109" class="ts-identifier ts-variable">isLast</a> <span class="ts-operator">=</span> <a id="t46" href="#def--root-ts-literate-src-extract-ts-3040" class="ts-identifier ts-variable">i</a> <span class="ts-operator">===</span> <a id="t47" href="#def--root-ts-literate-src-extract-ts-2252" class="ts-identifier ts-variable">lines</a><span class="ts-punctuation">.</span><a id="t48" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a> <span class="ts-operator">-</span> <span class="ts-number">1</span><span class="ts-punctuation">;</span></pre><div class="prose"><p><code>split(&quot;\n&quot;)</code> eats the newlines, so we have to account for them
+when tracking byte positions. every line except the last one had a
+<code>\n</code> that we need to count.</p>
+</div><pre class="code">    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-3335" href="#def--root-ts-literate-src-extract-ts-3335" class="ts-identifier ts-variable">lineLength</a> <span class="ts-operator">=</span> <a id="t50" href="#def--root-ts-literate-src-extract-ts-3082" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">.</span><a id="t51" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21174" class="ts-identifier ts-property">length</a> <span class="ts-operator">+</span> <span class="ts-punctuation">(</span><a id="t52" href="#def--root-ts-literate-src-extract-ts-3109" class="ts-identifier ts-variable">isLast</a> <span class="ts-operator">?</span> <span class="ts-number">0</span> <span class="ts-operator">:</span> <span class="ts-number">1</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-3390" href="#def--root-ts-literate-src-extract-ts-3390" class="ts-identifier ts-variable">trimmed</a> <span class="ts-operator">=</span> <a id="t54" href="#def--root-ts-literate-src-extract-ts-3082" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">.</span><a id="t55" href="node_modules/typescript/lib/lib.es2019.string.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2019-string-d-ts-1079" class="ts-identifier ts-method">trimStart</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-3428" href="#def--root-ts-literate-src-extract-ts-3428" class="ts-identifier ts-variable">indent</a> <span class="ts-operator">=</span> <a id="t57" href="#def--root-ts-literate-src-extract-ts-3082" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">.</span><a id="t58" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21174" class="ts-identifier ts-property">length</a> <span class="ts-operator">-</span> <a id="t59" href="#def--root-ts-literate-src-extract-ts-3390" class="ts-identifier ts-variable">trimmed</a><span class="ts-punctuation">.</span><a id="t60" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21174" class="ts-identifier ts-property">length</a><span class="ts-punctuation">;</span>
+    
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t61" href="#def--root-ts-literate-src-extract-ts-3390" class="ts-identifier ts-variable">trimmed</a><span class="ts-punctuation">.</span><a id="t62" href="node_modules/typescript/lib/lib.es2015.core.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-core-d-ts-18200" class="ts-identifier ts-method">startsWith</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;///&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>we&#39;ve hit a prose line. if we were in the middle of accumulating
+code, that code layer is done — flush it and start a new prose
+layer. this is the moment where the document switches voices,
+from &quot;here is what the computer sees&quot; to &quot;here is what the
+human wants to say.&quot;</p>
+</div><pre class="code">      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t63" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a> <span class="ts-operator">!==</span> <span class="ts-string">&quot;prose&quot;</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <a id="t64" href="#def--root-ts-literate-src-extract-ts-2722" class="ts-identifier ts-function">flush</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <a id="t65" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a> <span class="ts-operator">=</span> <span class="ts-string">&quot;prose&quot;</span><span class="ts-punctuation">;</span>
+        <a id="t66" href="#def--root-ts-literate-src-extract-ts-2378" class="ts-identifier ts-variable">currentOffset</a> <span class="ts-operator">=</span> <a id="t67" href="#def--root-ts-literate-src-extract-ts-2289" class="ts-identifier ts-variable">offset</a><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      </pre><div class="prose"><p>the <code>///</code> marker is scaffolding — it tells us &quot;this is prose&quot; but
+it&#39;s not part of the prose itself. we strip it, plus one optional
+space after it (so <code>/// hello</code> becomes <code>hello</code>, not <code> hello</code>).
+the result is clean markdown ready to be fed to a renderer.</p>
+</div><pre class="code">      <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-4266" href="#def--root-ts-literate-src-extract-ts-4266" class="ts-identifier ts-variable">proseContent</a> <span class="ts-operator">=</span> <a id="t69" href="#def--root-ts-literate-src-extract-ts-3390" class="ts-identifier ts-variable">trimmed</a><span class="ts-punctuation">.</span><a id="t70" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-19371" class="ts-identifier ts-method">slice</a><span class="ts-punctuation">(</span><span class="ts-number">3</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t71" href="#def--root-ts-literate-src-extract-ts-4266" class="ts-identifier ts-variable">proseContent</a><span class="ts-punctuation">.</span><a id="t72" href="node_modules/typescript/lib/lib.es2015.core.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-core-d-ts-18200" class="ts-identifier ts-method">startsWith</a><span class="ts-punctuation">(</span><span class="ts-string">&quot; &quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <a id="t73" href="#def--root-ts-literate-src-extract-ts-4266" class="ts-identifier ts-variable">proseContent</a> <span class="ts-operator">=</span> <a id="t74" href="#def--root-ts-literate-src-extract-ts-4266" class="ts-identifier ts-variable">proseContent</a><span class="ts-punctuation">.</span><a id="t75" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-19371" class="ts-identifier ts-method">slice</a><span class="ts-punctuation">(</span><span class="ts-number">1</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      
+      <a id="t76" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">+=</span> <a id="t77" href="#def--root-ts-literate-src-extract-ts-4266" class="ts-identifier ts-variable">proseContent</a><span class="ts-punctuation">;</span>
+      <a id="t78" href="#def--root-ts-literate-src-extract-ts-2403" class="ts-identifier ts-variable">currentOriginalLength</a> <span class="ts-operator">+=</span> <a id="t79" href="#def--root-ts-literate-src-extract-ts-3335" class="ts-identifier ts-variable">lineLength</a><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><span class="ts-operator">!</span><a id="t80" href="#def--root-ts-literate-src-extract-ts-3109" class="ts-identifier ts-variable">isLast</a><span class="ts-punctuation">)</span> <a id="t81" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">+=</span> <span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span> <span class="ts-keyword">else</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>and here&#39;s the mirror image — a regular code line. if we were
+reading prose, flush it and switch back to code.</p>
+</div><pre class="code">      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t82" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a> <span class="ts-operator">!==</span> <span class="ts-string">&quot;code&quot;</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <a id="t83" href="#def--root-ts-literate-src-extract-ts-2722" class="ts-identifier ts-function">flush</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <a id="t84" href="#def--root-ts-literate-src-extract-ts-2307" class="ts-identifier ts-variable">currentRole</a> <span class="ts-operator">=</span> <span class="ts-string">&quot;code&quot;</span><span class="ts-punctuation">;</span>
+        <a id="t85" href="#def--root-ts-literate-src-extract-ts-2378" class="ts-identifier ts-variable">currentOffset</a> <span class="ts-operator">=</span> <a id="t86" href="#def--root-ts-literate-src-extract-ts-2289" class="ts-identifier ts-variable">offset</a><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      
+      <a id="t87" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">+=</span> <a id="t88" href="#def--root-ts-literate-src-extract-ts-3082" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">;</span>
+      <a id="t89" href="#def--root-ts-literate-src-extract-ts-2403" class="ts-identifier ts-variable">currentOriginalLength</a> <span class="ts-operator">+=</span> <a id="t90" href="#def--root-ts-literate-src-extract-ts-3335" class="ts-identifier ts-variable">lineLength</a><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><span class="ts-operator">!</span><a id="t91" href="#def--root-ts-literate-src-extract-ts-3109" class="ts-identifier ts-variable">isLast</a><span class="ts-punctuation">)</span> <a id="t92" href="#def--root-ts-literate-src-extract-ts-2351" class="ts-identifier ts-variable">currentContent</a> <span class="ts-operator">+=</span> <span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    
+    <a id="t93" href="#def--root-ts-literate-src-extract-ts-2289" class="ts-identifier ts-variable">offset</a> <span class="ts-operator">+=</span> <a id="t94" href="#def--root-ts-literate-src-extract-ts-3335" class="ts-identifier ts-variable">lineLength</a><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  
+  <a id="t95" href="#def--root-ts-literate-src-extract-ts-2722" class="ts-identifier ts-function">flush</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><h3>merging pass</h3>
+<p>after the initial extraction, we clean up the layer list. the problem
+is that a blank line between two <code>///</code> blocks creates a tiny code layer
+(containing just whitespace) that splits what should be a single prose
+section. we detect this pattern and merge the prose layers, absorbing
+the blank lines.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-5341" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">:</span> <a id="t97" href="#def--root-ts-literate-src-extract-ts-655" class="ts-identifier ts-interface">Layer</a><span class="ts-punctuation">[</span><span class="ts-punctuation">]</span> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>we look at each layer in sequence. when we find a code layer that&#39;s
+nothing but whitespace, we check whether it&#39;s sandwiched between two
+prose layers. if so, we absorb it into the preceding prose — the blank
+line becomes paragraph spacing in markdown rather than an empty code block.</p>
+</div><pre class="code">  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-extract-ts-5685" href="#def--root-ts-literate-src-extract-ts-5685" class="ts-identifier ts-variable">i</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span> <a id="t99" href="#def--root-ts-literate-src-extract-ts-5685" class="ts-identifier ts-variable">i</a> <span class="ts-operator">&lt;</span> <a id="t100" href="#def--root-ts-literate-src-extract-ts-2222" class="ts-identifier ts-variable">layers</a><span class="ts-punctuation">.</span><a id="t101" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a><span class="ts-punctuation">;</span> <a id="t102" href="#def--root-ts-literate-src-extract-ts-5685" class="ts-identifier ts-variable">i</a><span class="ts-operator">++</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-5728" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a> <span class="ts-operator">=</span> <a id="t104" href="#def--root-ts-literate-src-extract-ts-2222" class="ts-identifier ts-variable">layers</a><span class="ts-punctuation">[</span><a id="t105" href="#def--root-ts-literate-src-extract-ts-5685" class="ts-identifier ts-variable">i</a><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t106" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t107" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a> <span class="ts-operator">===</span> <span class="ts-string">&quot;code&quot;</span> <span class="ts-operator">&amp;&amp;</span> <a id="t108" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t109" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">.</span><a id="t110" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21094" class="ts-identifier ts-method">trim</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-operator">===</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-5828" href="#def--root-ts-literate-src-extract-ts-5828" class="ts-identifier ts-variable">prev</a> <span class="ts-operator">=</span> <a id="t112" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">[</span><a id="t113" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">.</span><a id="t114" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a> <span class="ts-operator">-</span> <span class="ts-number">1</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-5874" href="#def--root-ts-literate-src-extract-ts-5874" class="ts-identifier ts-variable">next</a> <span class="ts-operator">=</span> <a id="t116" href="#def--root-ts-literate-src-extract-ts-2222" class="ts-identifier ts-variable">layers</a><span class="ts-punctuation">[</span><a id="t117" href="#def--root-ts-literate-src-extract-ts-5685" class="ts-identifier ts-variable">i</a> <span class="ts-operator">+</span> <span class="ts-number">1</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+      
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t118" href="#def--root-ts-literate-src-extract-ts-5828" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">?.</span><a id="t119" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a> <span class="ts-operator">===</span> <span class="ts-string">&quot;prose&quot;</span> <span class="ts-operator">&amp;&amp;</span> <a id="t120" href="#def--root-ts-literate-src-extract-ts-5874" class="ts-identifier ts-variable">next</a><span class="ts-punctuation">?.</span><a id="t121" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a> <span class="ts-operator">===</span> <span class="ts-string">&quot;prose&quot;</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>blank code between two prose sections → merge them, inserting
+newlines to represent the visual gap.</p>
+</div><pre class="code">        <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-6103" href="#def--root-ts-literate-src-extract-ts-6103" class="ts-identifier ts-variable">blankLines</a> <span class="ts-operator">=</span> <a id="t123" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t124" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">.</span><a id="t125" href="node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-symbol-wellknown-d-ts-9352" class="ts-identifier ts-method">split</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">.</span><a id="t126" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a> <span class="ts-operator">-</span> <span class="ts-number">1</span><span class="ts-punctuation">;</span>
+        <a id="t127" href="#def--root-ts-literate-src-extract-ts-5828" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">.</span><a id="t128" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a> <span class="ts-operator">+=</span> <span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">.</span><a id="t129" href="node_modules/typescript/lib/lib.es2015.core.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-core-d-ts-17920" class="ts-identifier ts-method">repeat</a><span class="ts-punctuation">(</span><a id="t130" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-25649" class="ts-identifier ts-variable">Math</a><span class="ts-punctuation">.</span><a id="t131" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-28373" class="ts-identifier ts-method">max</a><span class="ts-punctuation">(</span><span class="ts-number">1</span><span class="ts-punctuation">,</span> <a id="t132" href="#def--root-ts-literate-src-extract-ts-6103" class="ts-identifier ts-variable">blankLines</a><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <a id="t133" href="#def--root-ts-literate-src-extract-ts-5828" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">.</span><a id="t134" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a> <span class="ts-operator">+=</span> <a id="t135" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t136" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      <span class="ts-keyword">continue</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    </pre><div class="prose"><p>adjacent prose layers (which shouldn&#39;t normally happen after the
+above, but just in case) also get merged.</p>
+</div><pre class="code">    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-6437" href="#def--root-ts-literate-src-extract-ts-6437" class="ts-identifier ts-variable">prev</a> <span class="ts-operator">=</span> <a id="t138" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">[</span><a id="t139" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">.</span><a id="t140" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a> <span class="ts-operator">-</span> <span class="ts-number">1</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t141" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t142" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a> <span class="ts-operator">===</span> <span class="ts-string">&quot;prose&quot;</span> <span class="ts-operator">&amp;&amp;</span> <a id="t143" href="#def--root-ts-literate-src-extract-ts-6437" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">?.</span><a id="t144" href="#def--root-ts-literate-src-extract-ts-665" class="ts-identifier ts-property">role</a> <span class="ts-operator">===</span> <span class="ts-string">&quot;prose&quot;</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <a id="t145" href="#def--root-ts-literate-src-extract-ts-6437" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">.</span><a id="t146" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a> <span class="ts-operator">+=</span> <a id="t147" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t148" href="#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">;</span>
+      <a id="t149" href="#def--root-ts-literate-src-extract-ts-6437" class="ts-identifier ts-variable">prev</a><span class="ts-punctuation">.</span><a id="t150" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a> <span class="ts-operator">+=</span> <a id="t151" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">.</span><a id="t152" href="#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">continue</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    
+    <a id="t153" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">.</span><a id="t154" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><a id="t155" href="#def--root-ts-literate-src-extract-ts-5728" class="ts-identifier ts-variable">layer</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  
+  <span class="ts-keyword">return</span> <a id="t156" href="#def--root-ts-literate-src-extract-ts-5341" class="ts-identifier ts-variable">merged</a><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><h2>illiterate</h2>
+<p>this is the function that makes literate typescript compatible with
+the regular typescript compiler. it takes the original source and
+replaces every <code>///</code> line with spaces of the same length. the result
+is valid typescript (the prose is gone) but every character position
+is preserved, so error messages, source maps, and language service
+queries all still work.</p>
+<p>the name comes from agda&#39;s terminology: to &quot;illiterate&quot; a literate
+file is to strip the prose and leave only the code.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-extract-ts-7254" href="#def--root-ts-literate-src-extract-ts-7254" class="ts-identifier ts-function">illiterate</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-extract-ts-7265" href="#def--root-ts-literate-src-extract-ts-7265" class="ts-parameter-name ts-parameter">source</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-7299" href="#def--root-ts-literate-src-extract-ts-7299" class="ts-identifier ts-variable">lines</a> <span class="ts-operator">=</span> <a id="t160" href="#def--root-ts-literate-src-extract-ts-7265" class="ts-identifier ts-parameter">source</a><span class="ts-punctuation">.</span><a id="t161" href="node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-symbol-wellknown-d-ts-9352" class="ts-identifier ts-method">split</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-7335" href="#def--root-ts-literate-src-extract-ts-7335" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">[</span><span class="ts-punctuation">]</span> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-7374" href="#def--root-ts-literate-src-extract-ts-7374" class="ts-identifier ts-variable">line</a> <span class="ts-keyword">of</span> <a id="t164" href="#def--root-ts-literate-src-extract-ts-7299" class="ts-identifier ts-variable">lines</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-extract-ts-7401" href="#def--root-ts-literate-src-extract-ts-7401" class="ts-identifier ts-variable">trimmed</a> <span class="ts-operator">=</span> <a id="t166" href="#def--root-ts-literate-src-extract-ts-7374" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">.</span><a id="t167" href="node_modules/typescript/lib/lib.es2019.string.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2019-string-d-ts-1079" class="ts-identifier ts-method">trimStart</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t168" href="#def--root-ts-literate-src-extract-ts-7401" class="ts-identifier ts-variable">trimmed</a><span class="ts-punctuation">.</span><a id="t169" href="node_modules/typescript/lib/lib.es2015.core.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-core-d-ts-18200" class="ts-identifier ts-method">startsWith</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;///&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>we replace the entire line with spaces of the same length. not
+just the <code>///</code> — the whole line. this means the language service
+sees a blank line where the prose was, which it happily ignores.
+crucially, the replacement is exactly the same number of bytes,
+so every position after this line is still correct.</p>
+</div><pre class="code">      <a id="t170" href="#def--root-ts-literate-src-extract-ts-7335" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">.</span><a id="t171" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><span class="ts-string">&quot; &quot;</span><span class="ts-punctuation">.</span><a id="t172" href="node_modules/typescript/lib/lib.es2015.core.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-core-d-ts-17920" class="ts-identifier ts-method">repeat</a><span class="ts-punctuation">(</span><a id="t173" href="#def--root-ts-literate-src-extract-ts-7374" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">.</span><a id="t174" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-21174" class="ts-identifier ts-property">length</a><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span> <span class="ts-keyword">else</span> <span class="ts-punctuation">{</span>
+      <a id="t175" href="#def--root-ts-literate-src-extract-ts-7335" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">.</span><a id="t176" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><a id="t177" href="#def--root-ts-literate-src-extract-ts-7374" class="ts-identifier ts-variable">line</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+  <span class="ts-punctuation">}</span>
+  
+  <span class="ts-keyword">return</span> <a id="t178" href="#def--root-ts-literate-src-extract-ts-7335" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">.</span><a id="t179" href="node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-59257" class="ts-identifier ts-method">join</a><span class="ts-punctuation">(</span><span class="ts-string">&quot;\n&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre>
+</div>
+<script>
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+</script>
+<div id="quickinfo-templates" style="display:none">
+<template id="qi-t0"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;code&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;prose&quot;</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-607"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;code&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;prose&quot;</span></template>
+<template id="qi-t1"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-655"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t2">(property) Layer.role: LayerRole</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-665">(property) Layer.role: LayerRole</template>
+<template id="qi-t3"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;code&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;prose&quot;</span></template>
+<template id="qi-t4">(property) Layer.content: string</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-684">(property) Layer.content: string</template>
+<template id="qi-t5">(property) Layer.offset: number</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-1075">(property) Layer.offset: number</template>
+<template id="qi-t6">(property) Layer.originalLength: number</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-1526">(property) Layer.originalLength: number</template>
+<template id="qi-t7"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">extractLayers</span>(<span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2173"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">extractLayers</span>(<span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t8">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2187">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t9"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t10"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2222"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t11"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t12"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2252"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t13">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t14">(method) String.<span style="color:#6F42C1">split</span>(separator: string <span style="color:#D73A49">|</span> RegExp, limit<span style="color:#D73A49">?:</span> number): string[] (<span style="color:#D73A49">+</span><span style="color:#005CC5">1</span> overload)</template>
+<template id="qi-t15"><span style="color:#D73A49">let</span> offset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2289"><span style="color:#D73A49">let</span> offset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t16"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2307"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t17"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;code&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;prose&quot;</span></template>
+<template id="qi-t18"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2351"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t19"><span style="color:#D73A49">let</span> currentOffset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2378"><span style="color:#D73A49">let</span> currentOffset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t20"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2403"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t21">(local <span style="color:#D73A49">function</span>) <span style="color:#6F42C1">flush</span>()<span style="color:#D73A49">:</span> <span style="color:#005CC5">void</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-2722">(local <span style="color:#D73A49">function</span>) <span style="color:#6F42C1">flush</span>()<span style="color:#D73A49">:</span> <span style="color:#005CC5">void</span></template>
+<template id="qi-t22"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t23">(property) String.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t24"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t25"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t26">(method) Array<span style="color:#D73A49">&lt;</span>Layer<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: Layer[]): number</template>
+<template id="qi-t27">(property) Layer.role: LayerRole</template>
+<template id="qi-t28"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span></template>
+<template id="qi-t29">(property) Layer.content: string</template>
+<template id="qi-t30"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t31">(property) Layer.offset: number</template>
+<template id="qi-t32"><span style="color:#D73A49">let</span> currentOffset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t33">(property) Layer.originalLength: number</template>
+<template id="qi-t34"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t35"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t36"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t37"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3040"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t38"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t39"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t40">(property) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t41"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t42"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3082"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t43"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t44"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t45"><span style="color:#D73A49">const</span> <span style="color:#005CC5">isLast</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3109"><span style="color:#D73A49">const</span> <span style="color:#005CC5">isLast</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span></template>
+<template id="qi-t46"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t47"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t48">(property) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t49"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lineLength</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3335"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lineLength</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t50"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t51">(property) String.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t52"><span style="color:#D73A49">const</span> <span style="color:#005CC5">isLast</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span></template>
+<template id="qi-t53"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3390"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t54"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t55">(method) String.<span style="color:#6F42C1">trimStart</span>(): string</template>
+<template id="qi-t56"><span style="color:#D73A49">const</span> <span style="color:#005CC5">indent</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-3428"><span style="color:#D73A49">const</span> <span style="color:#005CC5">indent</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t57"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t58">(property) String.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t59"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t60">(property) String.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t61"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t62">(method) String.<span style="color:#6F42C1">startsWith</span>(searchString: string, position<span style="color:#D73A49">?:</span> number): boolean</template>
+<template id="qi-t63"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t64">(local <span style="color:#D73A49">function</span>) <span style="color:#6F42C1">flush</span>()<span style="color:#D73A49">:</span> <span style="color:#005CC5">void</span></template>
+<template id="qi-t65"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t66"><span style="color:#D73A49">let</span> currentOffset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t67"><span style="color:#D73A49">let</span> offset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t68"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-4266"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t69"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t70">(method) String.<span style="color:#6F42C1">slice</span>(start<span style="color:#D73A49">?:</span> number, end<span style="color:#D73A49">?:</span> number): string</template>
+<template id="qi-t71"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t72">(method) String.<span style="color:#6F42C1">startsWith</span>(searchString: string, position<span style="color:#D73A49">?:</span> number): boolean</template>
+<template id="qi-t73"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t74"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t75">(method) String.<span style="color:#6F42C1">slice</span>(start<span style="color:#D73A49">?:</span> number, end<span style="color:#D73A49">?:</span> number): string</template>
+<template id="qi-t76"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t77"><span style="color:#D73A49">let</span> proseContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t78"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t79"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lineLength</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t80"><span style="color:#D73A49">const</span> <span style="color:#005CC5">isLast</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span></template>
+<template id="qi-t81"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t82"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t83">(local <span style="color:#D73A49">function</span>) <span style="color:#6F42C1">flush</span>()<span style="color:#D73A49">:</span> <span style="color:#005CC5">void</span></template>
+<template id="qi-t84"><span style="color:#D73A49">let</span> currentRole<span style="color:#D73A49">:</span> <span style="color:#6F42C1">LayerRole</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t85"><span style="color:#D73A49">let</span> currentOffset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t86"><span style="color:#D73A49">let</span> offset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t87"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t88"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t89"><span style="color:#D73A49">let</span> currentOriginalLength<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t90"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lineLength</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t91"><span style="color:#D73A49">const</span> <span style="color:#005CC5">isLast</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span></template>
+<template id="qi-t92"><span style="color:#D73A49">let</span> currentContent<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t93"><span style="color:#D73A49">let</span> offset<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t94"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lineLength</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t95">(local <span style="color:#D73A49">function</span>) <span style="color:#6F42C1">flush</span>()<span style="color:#D73A49">:</span> <span style="color:#005CC5">void</span></template>
+<template id="qi-t96"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-5341"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t97"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t98"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-5685"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t99"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t100"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t101">(property) Array<span style="color:#D73A49">&lt;</span><span style="color:#005CC5">T</span><span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t102"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t103"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-5728"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t104"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t105"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t106"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t107">(property) Layer.role: LayerRole</template>
+<template id="qi-t108"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t109">(property) Layer.content: string</template>
+<template id="qi-t110">(method) String.<span style="color:#6F42C1">trim</span>(): string</template>
+<template id="qi-t111"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-5828"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t112"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t113"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t114">(property) Array<span style="color:#D73A49">&lt;</span><span style="color:#005CC5">T</span><span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t115"><span style="color:#D73A49">const</span> <span style="color:#005CC5">next</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-5874"><span style="color:#D73A49">const</span> <span style="color:#005CC5">next</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t116"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layers</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t117"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t118"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t119">(property) Layer.role: LayerRole</template>
+<template id="qi-t120"><span style="color:#D73A49">const</span> <span style="color:#005CC5">next</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t121">(property) Layer.role: LayerRole</template>
+<template id="qi-t122"><span style="color:#D73A49">const</span> <span style="color:#005CC5">blankLines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-6103"><span style="color:#D73A49">const</span> <span style="color:#005CC5">blankLines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t123"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t124">(property) Layer.content: string</template>
+<template id="qi-t125">(method) String.<span style="color:#6F42C1">split</span>(separator: string <span style="color:#D73A49">|</span> RegExp, limit<span style="color:#D73A49">?:</span> number): string[] (<span style="color:#D73A49">+</span><span style="color:#005CC5">1</span> overload)</template>
+<template id="qi-t126">(property) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t127"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t128">(property) Layer.content: string</template>
+<template id="qi-t129">(method) String.<span style="color:#6F42C1">repeat</span>(count: number): string</template>
+<template id="qi-t130"><span style="color:#D73A49">var</span> Math<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Math</span></template>
+<template id="qi-t131">(method) Math.<span style="color:#6F42C1">max</span>(<span style="color:#D73A49">...</span>values: number[]): number</template>
+<template id="qi-t132"><span style="color:#D73A49">const</span> <span style="color:#005CC5">blankLines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t133"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t134">(property) Layer.originalLength: number</template>
+<template id="qi-t135"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t136">(property) Layer.originalLength: number</template>
+<template id="qi-t137"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-6437"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t138"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t139"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t140">(property) Array<span style="color:#D73A49">&lt;</span><span style="color:#005CC5">T</span><span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t141"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t142">(property) Layer.role: LayerRole</template>
+<template id="qi-t143"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t144">(property) Layer.role: LayerRole</template>
+<template id="qi-t145"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t146">(property) Layer.content: string</template>
+<template id="qi-t147"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t148">(property) Layer.content: string</template>
+<template id="qi-t149"><span style="color:#D73A49">const</span> <span style="color:#005CC5">prev</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t150">(property) Layer.originalLength: number</template>
+<template id="qi-t151"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t152">(property) Layer.originalLength: number</template>
+<template id="qi-t153"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t154">(method) Array<span style="color:#D73A49">&lt;</span>Layer<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: Layer[]): number</template>
+<template id="qi-t155"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t156"><span style="color:#D73A49">const</span> <span style="color:#005CC5">merged</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>[]</template>
+<template id="qi-t157"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">illiterate</span>(<span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7254"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">illiterate</span>(<span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t158">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7265">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t159"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7299"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t160">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t161">(method) String.<span style="color:#6F42C1">split</span>(separator: string <span style="color:#D73A49">|</span> RegExp, limit<span style="color:#D73A49">?:</span> number): string[] (<span style="color:#D73A49">+</span><span style="color:#005CC5">1</span> overload)</template>
+<template id="qi-t162"><span style="color:#D73A49">const</span> <span style="color:#005CC5">result</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7335"><span style="color:#D73A49">const</span> <span style="color:#005CC5">result</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t163"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7374"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t164"><span style="color:#D73A49">const</span> <span style="color:#005CC5">lines</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t165"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-extract-ts-7401"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t166"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t167">(method) String.<span style="color:#6F42C1">trimStart</span>(): string</template>
+<template id="qi-t168"><span style="color:#D73A49">const</span> <span style="color:#005CC5">trimmed</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t169">(method) String.<span style="color:#6F42C1">startsWith</span>(searchString: string, position<span style="color:#D73A49">?:</span> number): boolean</template>
+<template id="qi-t170"><span style="color:#D73A49">const</span> <span style="color:#005CC5">result</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t171">(method) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: string[]): number</template>
+<template id="qi-t172">(method) String.<span style="color:#6F42C1">repeat</span>(count: number): string</template>
+<template id="qi-t173"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t174">(property) String.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t175"><span style="color:#D73A49">const</span> <span style="color:#005CC5">result</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t176">(method) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: string[]): number</template>
+<template id="qi-t177"><span style="color:#D73A49">const</span> <span style="color:#005CC5">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t178"><span style="color:#D73A49">const</span> <span style="color:#005CC5">result</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t179">(method) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">join</span>(separator<span style="color:#D73A49">?:</span> string): string</template>
+</div>
+</body>
+</html>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>prose.ts</title>
+  <style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > ul, .prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+</style>
+</head>
+<body>
+<script>
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+</script>
+<header class="watermark">
+  <a href="/" class="watermark-left">index</a>
+  <span class="watermark-right">ts-literate</span>
+</header>
+<div class="literate">
+<div class="prose"><h1>prose rendering</h1>
+<p>prose layers (the content extracted from <code>///</code> comments) are rendered
+as markdown using <a href="https://github.com/markedjs/marked">marked</a>. code
+fences inside the prose get syntax-highlighted by
+<a href="https://shiki.matsu.io/">shiki</a> via the <code>marked-shiki</code> plugin.</p>
+<p>this means you can write full markdown in your <code>///</code> comments —
+headings, lists, code blocks, links, tables, everything. the code
+fences get the same github-light theme as the surrounding code.</p>
+</div><pre class="code">
+<span class="ts-keyword">import</span> <span class="ts-punctuation">{</span> <a id="t0" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-20604" class="ts-identifier">Marked</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t1" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-45" class="ts-string">&quot;marked&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <a id="t2" href="../node_modules/marked-shiki/dist/index.d.html#def--root-ts-literate-node-modules-marked-shiki-dist-index-d-ts-841" class="ts-identifier">markedShiki</a> <span class="ts-keyword">from</span> <a id="t3" href="../node_modules/marked-shiki/dist/index.d.html#def--root-ts-literate-node-modules-marked-shiki-dist-index-d-ts-0" class="ts-string">&quot;marked-shiki&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <span class="ts-punctuation">{</span> <a id="t4" href="../node_modules/shiki/dist/bundle-full.d.mts#def--root-ts-literate-node-modules-shiki-dist-bundle-full-d-mts-907" class="ts-identifier">createHighlighter</a><span class="ts-punctuation">,</span> <span class="ts-keyword">type</span> <a id="t5" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-25827" class="ts-identifier">HighlighterGeneric</a><span class="ts-punctuation">,</span> <span class="ts-keyword">type</span> <a id="t6" href="../node_modules/shiki/dist/langs.d.mts#def--root-ts-literate-node-modules-shiki-dist-langs-d-mts-341" class="ts-identifier">BundledLanguage</a><span class="ts-punctuation">,</span> <span class="ts-keyword">type</span> <a id="t7" href="../node_modules/shiki/dist/themes.d.mts#def--root-ts-literate-node-modules-shiki-dist-themes-d-mts-141" class="ts-identifier">BundledTheme</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t8" href="../node_modules/shiki/dist/index.d.mts#def--root-ts-literate-node-modules-shiki-dist-index-d-mts-0" class="ts-string">&quot;shiki&quot;</a><span class="ts-punctuation">;</span>
+
+<span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-html-prose-ts-693" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a><span class="ts-punctuation">:</span> <a id="t10" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-20604" class="ts-identifier ts-class">Marked</a> <span class="ts-punctuation">|</span> <span class="ts-keyword">null</span> <span class="ts-operator">=</span> <span class="ts-keyword">null</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>shiki loads textmate grammars as wasm modules, which is expensive —
+you don&#39;t want to do it once per prose block. so we initialize the
+whole marked + shiki pipeline once and reuse it. the first call to
+<code>renderProse</code> pays the startup cost; every subsequent call is cheap.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">async</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-prose-ts-1034" href="#def--root-ts-literate-src-html-prose-ts-1034" class="ts-identifier ts-function">initMarked</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <a id="t12" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-71931" class="ts-identifier ts-interface">Promise</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">void</span><span class="ts-punctuation">&gt;</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t13" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a><span class="ts-punctuation">)</span> <span class="ts-keyword">return</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>we pre-load grammars for the languages most likely to appear in code
+fences inside documentation. typescript and javascript are obvious;
+bash for shell examples, json for config files, css and html for
+web-related docs.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-prose-ts-1341" href="#def--root-ts-literate-src-html-prose-ts-1341" class="ts-identifier ts-variable">highlighter</a> <span class="ts-operator">=</span> <span class="ts-keyword">await</span> <a id="t15" href="../node_modules/shiki/dist/bundle-full.d.mts#def--root-ts-literate-node-modules-shiki-dist-bundle-full-d-mts-907" class="ts-identifier ts-function">createHighlighter</a><span class="ts-punctuation">(</span><span class="ts-punctuation">{</span>
+    <a id="t16" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-17913" class="ts-identifier ts-property">themes</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">[</span><span class="ts-string">&quot;github-light&quot;</span><span class="ts-punctuation">]</span><span class="ts-punctuation">,</span>
+    <a id="t17" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-18050" class="ts-identifier ts-property">langs</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">[</span><span class="ts-string">&quot;typescript&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;javascript&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;json&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;bash&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;css&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;html&quot;</span><span class="ts-punctuation">]</span><span class="ts-punctuation">,</span>
+  <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p><code>marked-shiki</code> hooks into marked&#39;s code fence rendering. when marked
+encounters a fenced code block, it calls our <code>highlight</code> function
+instead of emitting plain <code>&lt;code&gt;</code>. we check if the requested language
+is one we loaded a grammar for — if not, we fall back to plaintext
+rather than crashing. (someone might write a ```rust block in their
+docs even though we didn&#39;t load the rust grammar.)</p>
+</div><pre class="code">  <a id="t18" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a> <span class="ts-operator">=</span> <span class="ts-keyword">new</span> <a id="t19" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-20604" class="ts-identifier ts-class">Marked</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <a id="t20" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a><span class="ts-punctuation">.</span><a id="t21" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-22744" class="ts-identifier ts-method">use</a><span class="ts-punctuation">(</span><a id="t22" href="../node_modules/marked-shiki/dist/index.d.html#def--root-ts-literate-node-modules-marked-shiki-dist-index-d-ts-841" class="ts-identifier ts-function">markedShiki</a><span class="ts-punctuation">(</span><span class="ts-punctuation">{</span>
+    <a id="t23" href="../node_modules/marked-shiki/dist/index.d.html#def--root-ts-literate-node-modules-marked-shiki-dist-index-d-ts-480" class="ts-identifier ts-method">highlight</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-prose-ts-1986" href="#def--root-ts-literate-src-html-prose-ts-1986" class="ts-parameter-name ts-parameter">code</a><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-prose-ts-1992" href="#def--root-ts-literate-src-html-prose-ts-1992" class="ts-parameter-name ts-parameter">lang</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-prose-ts-2012" href="#def--root-ts-literate-src-html-prose-ts-2012" class="ts-identifier ts-variable">language</a> <span class="ts-operator">=</span> <a id="t27" href="#def--root-ts-literate-src-html-prose-ts-1992" class="ts-identifier ts-parameter">lang</a> <span class="ts-operator">||</span> <span class="ts-string">&quot;typescript&quot;</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-prose-ts-2057" href="#def--root-ts-literate-src-html-prose-ts-2057" class="ts-identifier ts-variable">loadedLangs</a> <span class="ts-operator">=</span> <a id="t29" href="#def--root-ts-literate-src-html-prose-ts-1341" class="ts-identifier ts-variable">highlighter</a><span class="ts-punctuation">.</span><a id="t30" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-25365" class="ts-identifier ts-method">getLoadedLanguages</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-prose-ts-2117" href="#def--root-ts-literate-src-html-prose-ts-2117" class="ts-identifier ts-variable">actualLang</a> <span class="ts-operator">=</span> <a id="t32" href="#def--root-ts-literate-src-html-prose-ts-2057" class="ts-identifier ts-variable">loadedLangs</a><span class="ts-punctuation">.</span><a id="t33" href="../node_modules/typescript/lib/lib.es2016.array.include.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2016-array-include-d-ts-1150" class="ts-identifier ts-method">includes</a><span class="ts-punctuation">(</span><a id="t34" href="#def--root-ts-literate-src-html-prose-ts-2012" class="ts-identifier ts-variable">language</a> <span class="ts-keyword">as</span> <a id="t35" href="../node_modules/shiki/dist/langs.d.mts#def--root-ts-literate-node-modules-shiki-dist-langs-d-mts-341" class="ts-identifier ts-type">BundledLanguage</a><span class="ts-punctuation">)</span> <span class="ts-operator">?</span> <a id="t36" href="#def--root-ts-literate-src-html-prose-ts-2012" class="ts-identifier ts-variable">language</a> <span class="ts-operator">:</span> <span class="ts-string">&quot;plaintext&quot;</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">return</span> <a id="t37" href="#def--root-ts-literate-src-html-prose-ts-1341" class="ts-identifier ts-variable">highlighter</a><span class="ts-punctuation">.</span><a id="t38" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-26033" class="ts-identifier ts-method">codeToHtml</a><span class="ts-punctuation">(</span><a id="t39" href="#def--root-ts-literate-src-html-prose-ts-1986" class="ts-identifier ts-parameter">code</a><span class="ts-punctuation">,</span> <span class="ts-punctuation">{</span> 
+        <a id="t40" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-21354" class="ts-identifier ts-property">lang</a><span class="ts-punctuation">:</span> <a id="t41" href="#def--root-ts-literate-src-html-prose-ts-2117" class="ts-identifier ts-variable">actualLang</a><span class="ts-punctuation">,</span> 
+        <a id="t42" href="../node_modules/@shikijs/types/dist/index.d.mts#def--root-ts-literate-node-modules--shikijs-types-dist-index-d-mts-18332" class="ts-identifier ts-property">theme</a><span class="ts-punctuation">:</span> <span class="ts-string">&quot;github-light&quot;</span> 
+      <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+  <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><p>with the pipeline set up, rendering a prose block is just a matter of
+feeding the markdown string (already stripped of <code>///</code> markers) through
+marked and wrapping the result in a <code>&lt;div class=&quot;prose&quot;&gt;</code>. the wrapper
+is important — it scopes the prose styles (proportional font, wider
+line height, paragraph spacing) so they don&#39;t leak into the code blocks.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">async</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-prose-ts-2732" href="#def--root-ts-literate-src-html-prose-ts-2732" class="ts-identifier ts-function">renderProse</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-prose-ts-2744" href="#def--root-ts-literate-src-html-prose-ts-2744" class="ts-parameter-name ts-parameter">content</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <a id="t45" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-71931" class="ts-identifier ts-interface">Promise</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><span class="ts-operator">!</span><a id="t46" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">await</span> <a id="t47" href="#def--root-ts-literate-src-html-prose-ts-1034" class="ts-identifier ts-function">initMarked</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-prose-ts-2836" href="#def--root-ts-literate-src-html-prose-ts-2836" class="ts-identifier ts-variable">html</a> <span class="ts-operator">=</span> <span class="ts-keyword">await</span> <a id="t49" href="#def--root-ts-literate-src-html-prose-ts-693" class="ts-identifier ts-variable">marked</a><span class="ts-punctuation">!</span><span class="ts-punctuation">.</span><a id="t50" href="../node_modules/marked/lib/marked.d.html#def--root-ts-literate-node-modules-marked-lib-marked-d-ts-20788" class="ts-identifier ts-method">parse</a><span class="ts-punctuation">(</span><a id="t51" href="#def--root-ts-literate-src-html-prose-ts-2744" class="ts-identifier ts-parameter">content</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">return</span> <span class="ts-string">`&lt;div class=&quot;prose&quot;&gt;${</span><a id="t52" href="#def--root-ts-literate-src-html-prose-ts-2836" class="ts-identifier ts-variable">html</a><a id="t53" href="#def--root-ts-literate-src-html-prose-ts-2836" class="ts-string">}&lt;/div&gt;`</a><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre>
+</div>
+<script>
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+</script>
+<div id="quickinfo-templates" style="display:none">
+<template id="qi-t0">(alias) <span style="color:#D73A49">class</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#6F42C1">ParserOutput</span> <span style="color:#D73A49">=</span> <span style="color:#005CC5">string</span>, <span style="color:#6F42C1">RendererOutput</span> <span style="color:#D73A49">=</span> <span style="color:#005CC5">string</span>&gt;
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">Marked</span></template>
+<template id="qi-t1"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/node_modules/marked/lib/marked&quot;</span></template>
+<template id="qi-t2">(alias) <span style="color:#D73A49">function</span> <span style="color:#6F42C1">markedShiki</span>(<span style="color:#E36209">options</span><span style="color:#D73A49">?:</span> <span style="color:#6F42C1">Options</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">MarkedExtension</span>
+<span style="color:#D73A49">import</span> markedShiki</template>
+<template id="qi-t3"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/node_modules/marked-shiki/dist/index&quot;</span></template>
+<template id="qi-t4">(alias) <span style="color:#D73A49">const</span> <span style="color:#005CC5">createHighlighter</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">CreateHighlighterFactory</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;
+<span style="color:#D73A49">import</span> createHighlighter</template>
+<template id="qi-t5">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">HighlighterGeneric</span>&lt;<span style="color:#6F42C1">BundledLangKeys</span> <span style="color:#D73A49">extends</span> <span style="color:#005CC5">string</span>, <span style="color:#6F42C1">BundledThemeKeys</span> <span style="color:#D73A49">extends</span> <span style="color:#005CC5">string</span>&gt;
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">HighlighterGeneric</span></template>
+<template id="qi-t6">(alias) <span style="color:#D73A49">type</span> <span style="color:#6F42C1">BundledLanguage</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;html&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;1c&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;1c-query&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;abap&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;actionscript-3&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ada&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;adoc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;angular-html&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;angular-ts&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apache&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apex&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apl&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;applescript&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ara&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;asciidoc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;asm&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;astro&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;awk&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ballerina&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bash&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bat&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;batch&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;be&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;beancount&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;berry&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bibtex&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bicep&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bird&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bird2&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;blade&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bsl&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c#&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c++&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c3&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cadence&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cairo&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cdc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cjs&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clarity&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clj&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clojure&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;closure-templates&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cmake&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cmd&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cobol&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;codeowners&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;codeql&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;coffee&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;coffeescript&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;common-lisp&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;console&quot;</span> <span style="color:#D73A49">|</span> ... <span style="color:#005CC5">279</span> <span style="color:#6F42C1">more</span> ... <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;文言&quot;</span>
+<span style="color:#D73A49">import</span> BundledLanguage</template>
+<template id="qi-t7">(alias) <span style="color:#D73A49">type</span> <span style="color:#6F42C1">BundledTheme</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;andromeeda&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;aurora-x&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ayu-dark&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ayu-light&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ayu-mirage&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;catppuccin-frappe&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;catppuccin-latte&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;catppuccin-macchiato&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;catppuccin-mocha&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;dark-plus&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;dracula&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;dracula-soft&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;everforest-dark&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;everforest-light&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-dark&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-dark-default&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-dark-dimmed&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-dark-high-contrast&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-light&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-light-default&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;github-light-high-contrast&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-dark-hard&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-dark-medium&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-dark-soft&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-light-hard&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-light-medium&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;gruvbox-light-soft&quot;</span> <span style="color:#D73A49">|</span> ... <span style="color:#005CC5">37</span> <span style="color:#6F42C1">more</span> ... <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;vitesse-light&quot;</span>
+<span style="color:#D73A49">import</span> BundledTheme</template>
+<template id="qi-t8"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/node_modules/shiki/dist/index&quot;</span></template>
+<template id="qi-t9"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-693"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t10">(alias) <span style="color:#D73A49">class</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#6F42C1">ParserOutput</span> <span style="color:#D73A49">=</span> <span style="color:#005CC5">string</span>, <span style="color:#6F42C1">RendererOutput</span> <span style="color:#D73A49">=</span> <span style="color:#005CC5">string</span>&gt;
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">Marked</span></template>
+<template id="qi-t11"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">initMarked</span>()<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#005CC5">void</span>&gt;</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-1034"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">initMarked</span>()<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#005CC5">void</span>&gt;</template>
+<template id="qi-t12"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#6F42C1">T</span>&gt;</template>
+<template id="qi-t13"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t14"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlighter</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">HighlighterGeneric</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-1341"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlighter</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">HighlighterGeneric</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;</template>
+<template id="qi-t15">(alias) <span style="color:#6F42C1">createHighlighter</span>(options: BundledHighlighterOptions<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;</span>): <span style="color:#005CC5">Promise</span><span style="color:#D73A49">&lt;</span>HighlighterGeneric<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;&gt;</span>
+<span style="color:#D73A49">import</span> createHighlighter</template>
+<template id="qi-t16">(property) BundledHighlighterOptions<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;</span>.themes: (ThemeInput <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;none&quot;</span> <span style="color:#D73A49">|</span> StringLiteralUnion<span style="color:#D73A49">&lt;</span>BundledTheme, string<span style="color:#D73A49">&gt;</span>)[]</template>
+<template id="qi-t17">(property) BundledHighlighterOptions<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;</span>.langs: (LanguageInput <span style="color:#D73A49">|</span> SpecialLanguage <span style="color:#D73A49">|</span> StringLiteralUnion<span style="color:#D73A49">&lt;</span>BundledLanguage, string<span style="color:#D73A49">&gt;</span>)[]</template>
+<template id="qi-t18"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t19">(alias) <span style="color:#D73A49">new</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;(<span style="color:#D73A49">...</span>args: MarkedExtension<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>[]): Marked<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>
+<span style="color:#D73A49">import</span> Marked</template>
+<template id="qi-t20"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t21">(method) Marked<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">use</span>(<span style="color:#D73A49">...</span>args: MarkedExtension<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>[]): Marked<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t22">(alias) <span style="color:#6F42C1">markedShiki</span>(options<span style="color:#D73A49">?:</span> Options): MarkedExtension
+<span style="color:#D73A49">import</span> markedShiki</template>
+<template id="qi-t23">(property) highlight<span style="color:#D73A49">?:</span> ((<span style="color:#E36209">code</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">lang</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">props</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]) <span style="color:#D73A49">=&gt;</span> string <span style="color:#D73A49">|</span> <span style="color:#005CC5">Promise</span><span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>) <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t24">(parameter) <span style="color:#6F42C1">code</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-1986">(parameter) <span style="color:#6F42C1">code</span>: string</template>
+<template id="qi-t25">(parameter) <span style="color:#6F42C1">lang</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-1992">(parameter) <span style="color:#6F42C1">lang</span>: string</template>
+<template id="qi-t26"><span style="color:#D73A49">const</span> <span style="color:#005CC5">language</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2012"><span style="color:#D73A49">const</span> <span style="color:#005CC5">language</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t27">(parameter) <span style="color:#6F42C1">lang</span>: string</template>
+<template id="qi-t28"><span style="color:#D73A49">const</span> <span style="color:#005CC5">loadedLangs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2057"><span style="color:#D73A49">const</span> <span style="color:#005CC5">loadedLangs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t29"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlighter</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">HighlighterGeneric</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;</template>
+<template id="qi-t30">(property) ShikiInternal<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;</span>.getLoadedLanguages: () <span style="color:#D73A49">=&gt;</span> string[]</template>
+<template id="qi-t31"><span style="color:#D73A49">const</span> <span style="color:#005CC5">actualLang</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2117"><span style="color:#D73A49">const</span> <span style="color:#005CC5">actualLang</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t32"><span style="color:#D73A49">const</span> <span style="color:#005CC5">loadedLangs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t33">(method) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">includes</span>(searchElement: string, fromIndex<span style="color:#D73A49">?:</span> number): boolean</template>
+<template id="qi-t34"><span style="color:#D73A49">const</span> <span style="color:#005CC5">language</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t35">(alias) <span style="color:#D73A49">type</span> <span style="color:#6F42C1">BundledLanguage</span> <span style="color:#D73A49">=</span> <span style="color:#032F62">&quot;html&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;1c&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;1c-query&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;abap&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;actionscript-3&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ada&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;adoc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;angular-html&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;angular-ts&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apache&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apex&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;apl&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;applescript&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ara&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;asciidoc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;asm&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;astro&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;awk&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;ballerina&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bash&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bat&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;batch&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;be&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;beancount&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;berry&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bibtex&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bicep&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bird&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bird2&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;blade&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;bsl&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c#&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c++&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;c3&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cadence&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cairo&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cdc&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cjs&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clarity&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clj&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;clojure&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;closure-templates&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cmake&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cmd&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;cobol&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;codeowners&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;codeql&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;coffee&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;coffeescript&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;common-lisp&quot;</span> <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;console&quot;</span> <span style="color:#D73A49">|</span> ... <span style="color:#005CC5">279</span> <span style="color:#6F42C1">more</span> ... <span style="color:#D73A49">|</span> <span style="color:#032F62">&quot;文言&quot;</span>
+<span style="color:#D73A49">import</span> BundledLanguage</template>
+<template id="qi-t36"><span style="color:#D73A49">const</span> <span style="color:#005CC5">language</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t37"><span style="color:#D73A49">const</span> <span style="color:#005CC5">highlighter</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">HighlighterGeneric</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;</template>
+<template id="qi-t38">(property) HighlighterGeneric<span style="color:#D73A49">&lt;</span>BundledLanguage, BundledTheme<span style="color:#D73A49">&gt;</span>.codeToHtml: (<span style="color:#E36209">code</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">options</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">CodeToHastOptions</span>&lt;<span style="color:#6F42C1">BundledLanguage</span>, <span style="color:#6F42C1">BundledTheme</span>&gt;) <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-t39">(parameter) <span style="color:#6F42C1">code</span>: string</template>
+<template id="qi-t40">(property) <span style="color:#6F42C1">lang</span>: string</template>
+<template id="qi-t41"><span style="color:#D73A49">const</span> <span style="color:#005CC5">actualLang</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t42">(property) CodeOptionsSingleTheme<span style="color:#D73A49">&lt;</span>BundledTheme<span style="color:#D73A49">&gt;</span>.theme: ThemeRegistrationAny <span style="color:#D73A49">|</span> StringLiteralUnion<span style="color:#D73A49">&lt;</span>BundledTheme, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t43"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">renderProse</span>(<span style="color:#E36209">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2732"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">renderProse</span>(<span style="color:#E36209">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t44">(parameter) <span style="color:#6F42C1">content</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2744">(parameter) <span style="color:#6F42C1">content</span>: string</template>
+<template id="qi-t45"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#6F42C1">T</span>&gt;</template>
+<template id="qi-t46"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t47"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">initMarked</span>()<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Promise</span>&lt;<span style="color:#005CC5">void</span>&gt;</template>
+<template id="qi-t48"><span style="color:#D73A49">const</span> <span style="color:#005CC5">html</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-prose-ts-2836"><span style="color:#D73A49">const</span> <span style="color:#005CC5">html</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t49"><span style="color:#D73A49">let</span> marked<span style="color:#D73A49">:</span> <span style="color:#6F42C1">Marked</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span></template>
+<template id="qi-t50">(property) Marked<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.parse: (<span style="color:#E36209">src</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">options</span><span style="color:#D73A49">?:</span> <span style="color:#6F42C1">MarkedOptions</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span>) <span style="color:#D73A49">=&gt;</span> string <span style="color:#D73A49">|</span> <span style="color:#005CC5">Promise</span>&lt;<span style="color:#005CC5">string</span>&gt; (<span style="color:#D73A49">+</span><span style="color:#005CC5">2</span> overloads)</template>
+<template id="qi-t51">(parameter) <span style="color:#6F42C1">content</span>: string</template>
+<template id="qi-t52"><span style="color:#D73A49">const</span> <span style="color:#005CC5">html</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t53"><span style="color:#D73A49">const</span> <span style="color:#005CC5">html</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+</div>
+</body>
+</html>

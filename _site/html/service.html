@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>service.ts</title>
+  <style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > ul, .prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+</style>
+</head>
+<body>
+<script>
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+</script>
+<header class="watermark">
+  <a href="/" class="watermark-left">index</a>
+  <span class="watermark-right">ts-literate</span>
+</header>
+<div class="literate">
+<div class="prose"><h1>typescript language service wrappers</h1>
+<p>the typescript language service is the same engine that powers VS Code&#39;s
+intellisense. we create lightweight instances of it to get:</p>
+<ul>
+<li><strong>syntactic classification</strong> — is this token a keyword? a string? an identifier?</li>
+<li><strong>semantic classification</strong> — is this identifier a function? a type? a variable?</li>
+<li><strong>go-to-definition</strong> — where is this symbol defined?</li>
+<li><strong>quick info</strong> — what&#39;s the type signature? (the hover tooltip)</li>
+<li><strong>navigation tree</strong> — what symbols are exported? (for the index page)</li>
+</ul>
+<p>we provide two flavors: one for a single file (used in single-file mode)
+and one for multiple files (used when generating a whole project, so
+cross-file references resolve correctly).</p>
+</div><pre class="code">
+<span class="ts-keyword">import</span> <a id="def--root-ts-literate-src-html-service-ts-779" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a> <span class="ts-keyword">from</span> <a id="t1" href="../node_modules/typescript/lib/typescript.d.html#def--root-ts-literate-node-modules-typescript-lib-typescript-d-ts-812" class="ts-string">&quot;typescript&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <span class="ts-punctuation">{</span> <a id="t2" href="../extract.html#def--root-ts-literate-src-extract-ts-7254" class="ts-identifier">illiterate</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t3" href="../extract.html#def--root-ts-literate-src-extract-ts-0" class="ts-string">&quot;../extract.js&quot;</a><span class="ts-punctuation">;</span></pre><div class="prose"><h2>single-file language service</h2>
+<p>typescript&#39;s language service doesn&#39;t just take a string and give you
+answers. it expects a <code>LanguageServiceHost</code> — an object that acts as
+its window into the filesystem. &quot;what files are in this project?&quot;
+&quot;what are the compiler settings?&quot; &quot;give me the contents of this file.&quot;</p>
+<p>for single-file mode we give it the simplest possible host: one file,
+sensible defaults, and the real filesystem for everything else (so it
+can find <code>lib.d.ts</code> and friends).</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-service-ts-1385" href="#def--root-ts-literate-src-html-service-ts-1385" class="ts-identifier ts-function">createLanguageService</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-1407" href="#def--root-ts-literate-src-html-service-ts-1407" class="ts-parameter-name ts-parameter">filename</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-service-ts-1425" href="#def--root-ts-literate-src-html-service-ts-1425" class="ts-parameter-name ts-parameter">source</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <a id="t7" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t8" class="ts-identifier ts-type">LanguageService</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-service-ts-1471" href="#def--root-ts-literate-src-html-service-ts-1471" class="ts-identifier ts-variable">host</a><span class="ts-punctuation">:</span> <a id="t10" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t11" class="ts-identifier ts-type">LanguageServiceHost</span> <span class="ts-operator">=</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>&quot;what files should i analyze?&quot; — just the one.</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-1563" href="#def--root-ts-literate-src-html-service-ts-1563" class="ts-identifier ts-method">getScriptFileNames</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-punctuation">[</span><a id="t13" href="#def--root-ts-literate-src-html-service-ts-1407" class="ts-identifier ts-parameter">filename</a><span class="ts-punctuation">]</span><span class="ts-punctuation">,</span></pre><div class="prose"><p>&quot;has this file changed since i last looked?&quot; — no, we only read
+each file once. returning a constant version string means the
+service never invalidates its cache.</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-1792" href="#def--root-ts-literate-src-html-service-ts-1792" class="ts-identifier ts-method">getScriptVersion</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-string">&quot;1&quot;</span><span class="ts-punctuation">,</span></pre><div class="prose"><p>&quot;give me the contents of this file.&quot; for our target file, we serve
+the in-memory source string. for anything else (like <code>lib.d.ts</code>),
+we read from disk. this is how the service finds type definitions
+for built-in types like <code>Array</code> and <code>Promise</code>.</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-2103" href="#def--root-ts-literate-src-html-service-ts-2103" class="ts-identifier ts-method">getScriptSnapshot</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-2123" href="#def--root-ts-literate-src-html-service-ts-2123" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-punctuation">{</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t17" href="#def--root-ts-literate-src-html-service-ts-2123" class="ts-identifier ts-parameter">name</a> <span class="ts-operator">===</span> <a id="t18" href="#def--root-ts-literate-src-html-service-ts-1407" class="ts-identifier ts-parameter">filename</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">return</span> <a id="t19" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t20" class="ts-identifier">ScriptSnapshot</span><span class="ts-punctuation">.</span><span id="t21" class="ts-identifier">fromString</span><span class="ts-punctuation">(</span><a id="t22" href="#def--root-ts-literate-src-html-service-ts-1425" class="ts-identifier ts-parameter">source</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t23" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t24" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t25" class="ts-identifier">fileExists</span><span class="ts-punctuation">(</span><a id="t26" href="#def--root-ts-literate-src-html-service-ts-2123" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">return</span> <a id="t27" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t28" class="ts-identifier">ScriptSnapshot</span><span class="ts-punctuation">.</span><span id="t29" class="ts-identifier">fromString</span><span class="ts-punctuation">(</span><a id="t30" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t31" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t32" class="ts-identifier">readFile</span><span class="ts-punctuation">(</span><a id="t33" href="#def--root-ts-literate-src-html-service-ts-2123" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-operator">??</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      <span class="ts-keyword">return</span> <span id="t34" class="ts-identifier">undefined</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-2380" href="#def--root-ts-literate-src-html-service-ts-2380" class="ts-identifier ts-method">getCurrentDirectory</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t36" href="../node_modules/@types/node/globals.d.html#def--root-ts-literate-node-modules--types-node-globals-d-ts-52" class="ts-identifier ts-variable">process</a><span class="ts-punctuation">.</span><a id="t37" href="../node_modules/@types/node/process.d.html#def--root-ts-literate-node-modules--types-node-process-d-ts-32854" class="ts-identifier ts-method">cwd</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-2426" href="#def--root-ts-literate-src-html-service-ts-2426" class="ts-identifier ts-method">getCompilationSettings</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">{</span>
+      <a id="def--root-ts-literate-src-html-service-ts-2465" href="#def--root-ts-literate-src-html-service-ts-2465" class="ts-identifier ts-property">target</a><span class="ts-punctuation">:</span> <a id="t40" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t41" class="ts-identifier">ScriptTarget</span><span class="ts-punctuation">.</span><span id="t42" class="ts-identifier">ESNext</span><span class="ts-punctuation">,</span>
+      <a id="def--root-ts-literate-src-html-service-ts-2503" href="#def--root-ts-literate-src-html-service-ts-2503" class="ts-identifier ts-property">module</a><span class="ts-punctuation">:</span> <a id="t44" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t45" class="ts-identifier">ModuleKind</span><span class="ts-punctuation">.</span><span id="t46" class="ts-identifier">ESNext</span><span class="ts-punctuation">,</span>
+      <a id="def--root-ts-literate-src-html-service-ts-2539" href="#def--root-ts-literate-src-html-service-ts-2539" class="ts-identifier ts-property">strict</a><span class="ts-punctuation">:</span> <span class="ts-keyword">true</span><span class="ts-punctuation">,</span>
+    <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-2565" href="#def--root-ts-literate-src-html-service-ts-2565" class="ts-identifier ts-method">getDefaultLibFileName</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-2589" href="#def--root-ts-literate-src-html-service-ts-2589" class="ts-parameter-name ts-parameter">opts</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t50" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t51" class="ts-identifier">getDefaultLibFilePath</span><span class="ts-punctuation">(</span><a id="t52" href="#def--root-ts-literate-src-html-service-ts-2589" class="ts-identifier ts-parameter">opts</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span></pre><div class="prose"><p>the remaining methods delegate to typescript&#39;s built-in <code>sys</code> object,
+which provides platform-appropriate filesystem operations. we override
+<code>fileExists</code> and <code>readFile</code> to intercept our target file, but everything
+else (directory listing, etc.) goes straight to disk.</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-2934" href="#def--root-ts-literate-src-html-service-ts-2934" class="ts-identifier ts-method">fileExists</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-2947" href="#def--root-ts-literate-src-html-service-ts-2947" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t55" href="#def--root-ts-literate-src-html-service-ts-2947" class="ts-identifier ts-parameter">name</a> <span class="ts-operator">===</span> <a id="t56" href="#def--root-ts-literate-src-html-service-ts-1407" class="ts-identifier ts-parameter">filename</a> <span class="ts-operator">||</span> <a id="t57" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t58" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t59" class="ts-identifier">fileExists</span><span class="ts-punctuation">(</span><a id="t60" href="#def--root-ts-literate-src-html-service-ts-2947" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-3006" href="#def--root-ts-literate-src-html-service-ts-3006" class="ts-identifier ts-method">readFile</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-3017" href="#def--root-ts-literate-src-html-service-ts-3017" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t63" href="#def--root-ts-literate-src-html-service-ts-3017" class="ts-identifier ts-parameter">name</a> <span class="ts-operator">===</span> <a id="t64" href="#def--root-ts-literate-src-html-service-ts-1407" class="ts-identifier ts-parameter">filename</a> <span class="ts-operator">?</span> <a id="t65" href="#def--root-ts-literate-src-html-service-ts-1425" class="ts-identifier ts-parameter">source</a> <span class="ts-operator">:</span> <a id="t66" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t67" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t68" class="ts-identifier">readFile</span><span class="ts-punctuation">(</span><a id="t69" href="#def--root-ts-literate-src-html-service-ts-3017" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-3082" href="#def--root-ts-literate-src-html-service-ts-3082" class="ts-identifier ts-property">readDirectory</a><span class="ts-punctuation">:</span> <a id="t71" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t72" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t73" class="ts-identifier">readDirectory</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-3123" href="#def--root-ts-literate-src-html-service-ts-3123" class="ts-identifier ts-property">directoryExists</a><span class="ts-punctuation">:</span> <a id="t75" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t76" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t77" class="ts-identifier">directoryExists</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-3168" href="#def--root-ts-literate-src-html-service-ts-3168" class="ts-identifier ts-property">getDirectories</a><span class="ts-punctuation">:</span> <a id="t79" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t80" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t81" class="ts-identifier">getDirectories</span><span class="ts-punctuation">,</span>
+  <span class="ts-punctuation">}</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>the document registry is a shared cache that typescript uses to avoid
+re-parsing files that haven&#39;t changed. for single-file mode it doesn&#39;t
+matter much, but it&#39;s required by the API.</p>
+</div><pre class="code">  <span class="ts-keyword">return</span> <a id="t82" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t83" class="ts-identifier">createLanguageService</span><span class="ts-punctuation">(</span><a id="t84" href="#def--root-ts-literate-src-html-service-ts-1471" class="ts-identifier ts-variable">host</a><span class="ts-punctuation">,</span> <a id="t85" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t86" class="ts-identifier">createDocumentRegistry</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><h2>multi-file language service</h2>
+<p>when generating html for a whole project, we need the language service
+to know about ALL the files so that cross-file go-to-definition works.
+if file A imports a type from file B, we need to be able to link to
+file B&#39;s generated html page.</p>
+<p>crucially, we illiterate all files before handing them to the service.
+the <code>///</code> prose lines get blanked to spaces so typescript doesn&#39;t try
+to parse them as code, but the positions stay aligned.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-service-ts-4014" href="#def--root-ts-literate-src-html-service-ts-4014" class="ts-identifier ts-function">createMultiFileLanguageService</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-4045" href="#def--root-ts-literate-src-html-service-ts-4045" class="ts-parameter-name ts-parameter">files</a><span class="ts-punctuation">:</span> <a id="t89" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-interface">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <a id="t90" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t91" class="ts-identifier ts-type">LanguageService</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-service-ts-4103" href="#def--root-ts-literate-src-html-service-ts-4103" class="ts-identifier ts-variable">fileNames</a> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><span class="ts-punctuation">...</span><a id="t93" href="#def--root-ts-literate-src-html-service-ts-4045" class="ts-identifier ts-parameter">files</a><span class="ts-punctuation">.</span><a id="t94" href="../node_modules/typescript/lib/lib.es2015.iterable.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-iterable-d-ts-4721" class="ts-identifier ts-method">keys</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>we illiterate all files upfront rather than on-demand. this is a one-time
+cost and ensures the language service never sees <code>///</code> prose lines.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-service-ts-4299" href="#def--root-ts-literate-src-html-service-ts-4299" class="ts-identifier ts-variable">illiteratedFiles</a> <span class="ts-operator">=</span> <span class="ts-keyword">new</span> <a id="t96" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-class">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">const</span> <span class="ts-punctuation">[</span><a id="def--root-ts-literate-src-html-service-ts-4359" href="#def--root-ts-literate-src-html-service-ts-4359" class="ts-identifier ts-variable">name</a><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-service-ts-4365" href="#def--root-ts-literate-src-html-service-ts-4365" class="ts-identifier ts-variable">source</a><span class="ts-punctuation">]</span> <span class="ts-keyword">of</span> <a id="t99" href="#def--root-ts-literate-src-html-service-ts-4045" class="ts-identifier ts-parameter">files</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <a id="t100" href="#def--root-ts-literate-src-html-service-ts-4299" class="ts-identifier ts-variable">illiteratedFiles</a><span class="ts-punctuation">.</span><a id="t101" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1997" class="ts-identifier ts-method">set</a><span class="ts-punctuation">(</span><a id="t102" href="#def--root-ts-literate-src-html-service-ts-4359" class="ts-identifier ts-variable">name</a><span class="ts-punctuation">,</span> <a id="t103" href="../extract.html#def--root-ts-literate-src-extract-ts-7254" class="ts-identifier ts-function">illiterate</a><span class="ts-punctuation">(</span><a id="t104" href="#def--root-ts-literate-src-html-service-ts-4365" class="ts-identifier ts-variable">source</a><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-service-ts-4452" href="#def--root-ts-literate-src-html-service-ts-4452" class="ts-identifier ts-variable">host</a><span class="ts-punctuation">:</span> <a id="t106" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t107" class="ts-identifier ts-type">LanguageServiceHost</span> <span class="ts-operator">=</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>&quot;what files should i analyze?&quot; — all of them. this is how the language
+service knows that <code>import { foo } from &quot;./bar&quot;</code> should resolve to
+our bar.ts, not some random file on disk.</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-4693" href="#def--root-ts-literate-src-html-service-ts-4693" class="ts-identifier ts-method">getScriptFileNames</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t109" href="#def--root-ts-literate-src-html-service-ts-4103" class="ts-identifier ts-variable">fileNames</a><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-4734" href="#def--root-ts-literate-src-html-service-ts-4734" class="ts-identifier ts-method">getScriptVersion</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-string">&quot;1&quot;</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-4767" href="#def--root-ts-literate-src-html-service-ts-4767" class="ts-identifier ts-method">getScriptSnapshot</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-4787" href="#def--root-ts-literate-src-html-service-ts-4787" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-punctuation">{</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-service-ts-4810" href="#def--root-ts-literate-src-html-service-ts-4810" class="ts-identifier ts-variable">content</a> <span class="ts-operator">=</span> <a id="t114" href="#def--root-ts-literate-src-html-service-ts-4299" class="ts-identifier ts-variable">illiteratedFiles</a><span class="ts-punctuation">.</span><a id="t115" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1669" class="ts-identifier ts-method">get</a><span class="ts-punctuation">(</span><a id="t116" href="#def--root-ts-literate-src-html-service-ts-4787" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t117" href="#def--root-ts-literate-src-html-service-ts-4810" class="ts-identifier ts-variable">content</a> <span class="ts-operator">!==</span> <span id="t118" class="ts-identifier">undefined</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">return</span> <a id="t119" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t120" class="ts-identifier">ScriptSnapshot</span><span class="ts-punctuation">.</span><span id="t121" class="ts-identifier">fromString</span><span class="ts-punctuation">(</span><a id="t122" href="#def--root-ts-literate-src-html-service-ts-4810" class="ts-identifier ts-variable">content</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span></pre><div class="prose"><p>if it&#39;s not one of our project files, it&#39;s probably something like
+<code>lib.es5.d.ts</code> or a dependency in <code>node_modules</code>. typescript needs
+these to resolve types, so we let it read them from disk.</p>
+</div><pre class="code">      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t123" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t124" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t125" class="ts-identifier">fileExists</span><span class="ts-punctuation">(</span><a id="t126" href="#def--root-ts-literate-src-html-service-ts-4787" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">return</span> <a id="t127" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t128" class="ts-identifier">ScriptSnapshot</span><span class="ts-punctuation">.</span><span id="t129" class="ts-identifier">fromString</span><span class="ts-punctuation">(</span><a id="t130" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t131" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t132" class="ts-identifier">readFile</span><span class="ts-punctuation">(</span><a id="t133" href="#def--root-ts-literate-src-html-service-ts-4787" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-operator">??</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-punctuation">}</span>
+      <span class="ts-keyword">return</span> <span id="t134" class="ts-identifier">undefined</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-5321" href="#def--root-ts-literate-src-html-service-ts-5321" class="ts-identifier ts-method">getCurrentDirectory</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t136" href="../node_modules/@types/node/globals.d.html#def--root-ts-literate-node-modules--types-node-globals-d-ts-52" class="ts-identifier ts-variable">process</a><span class="ts-punctuation">.</span><a id="t137" href="../node_modules/@types/node/process.d.html#def--root-ts-literate-node-modules--types-node-process-d-ts-32854" class="ts-identifier ts-method">cwd</a><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span></pre><div class="prose"><p><code>NodeNext</code> module resolution is important here — without it, typescript
+won&#39;t resolve <code>.js</code> extension imports (which are standard for ESM
+projects that compile <code>.ts</code> → <code>.js</code>).</p>
+</div><pre class="code">    <a id="def--root-ts-literate-src-html-service-ts-5567" href="#def--root-ts-literate-src-html-service-ts-5567" class="ts-identifier ts-method">getCompilationSettings</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <span class="ts-punctuation">(</span><span class="ts-punctuation">{</span>
+      <a id="def--root-ts-literate-src-html-service-ts-5606" href="#def--root-ts-literate-src-html-service-ts-5606" class="ts-identifier ts-property">target</a><span class="ts-punctuation">:</span> <a id="t140" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t141" class="ts-identifier">ScriptTarget</span><span class="ts-punctuation">.</span><span id="t142" class="ts-identifier">ESNext</span><span class="ts-punctuation">,</span>
+      <a id="def--root-ts-literate-src-html-service-ts-5644" href="#def--root-ts-literate-src-html-service-ts-5644" class="ts-identifier ts-property">module</a><span class="ts-punctuation">:</span> <a id="t144" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t145" class="ts-identifier">ModuleKind</span><span class="ts-punctuation">.</span><span id="t146" class="ts-identifier">ESNext</span><span class="ts-punctuation">,</span>
+      <a id="def--root-ts-literate-src-html-service-ts-5680" href="#def--root-ts-literate-src-html-service-ts-5680" class="ts-identifier ts-property">moduleResolution</a><span class="ts-punctuation">:</span> <a id="t148" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t149" class="ts-identifier">ModuleResolutionKind</span><span class="ts-punctuation">.</span><span id="t150" class="ts-identifier">NodeNext</span><span class="ts-punctuation">,</span>
+      <a id="def--root-ts-literate-src-html-service-ts-5738" href="#def--root-ts-literate-src-html-service-ts-5738" class="ts-identifier ts-property">strict</a><span class="ts-punctuation">:</span> <span class="ts-keyword">true</span><span class="ts-punctuation">,</span>
+    <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-5764" href="#def--root-ts-literate-src-html-service-ts-5764" class="ts-identifier ts-method">getDefaultLibFileName</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-5788" href="#def--root-ts-literate-src-html-service-ts-5788" class="ts-parameter-name ts-parameter">opts</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t154" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t155" class="ts-identifier">getDefaultLibFilePath</span><span class="ts-punctuation">(</span><a id="t156" href="#def--root-ts-literate-src-html-service-ts-5788" class="ts-identifier ts-parameter">opts</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-5833" href="#def--root-ts-literate-src-html-service-ts-5833" class="ts-identifier ts-method">fileExists</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-5846" href="#def--root-ts-literate-src-html-service-ts-5846" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t159" href="#def--root-ts-literate-src-html-service-ts-4299" class="ts-identifier ts-variable">illiteratedFiles</a><span class="ts-punctuation">.</span><a id="t160" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1809" class="ts-identifier ts-method">has</a><span class="ts-punctuation">(</span><a id="t161" href="#def--root-ts-literate-src-html-service-ts-5846" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-operator">||</span> <a id="t162" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t163" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t164" class="ts-identifier">fileExists</span><span class="ts-punctuation">(</span><a id="t165" href="#def--root-ts-literate-src-html-service-ts-5846" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-5914" href="#def--root-ts-literate-src-html-service-ts-5914" class="ts-identifier ts-method">readFile</a><span class="ts-punctuation">:</span> <span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-service-ts-5925" href="#def--root-ts-literate-src-html-service-ts-5925" class="ts-parameter-name ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t168" href="#def--root-ts-literate-src-html-service-ts-4299" class="ts-identifier ts-variable">illiteratedFiles</a><span class="ts-punctuation">.</span><a id="t169" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1669" class="ts-identifier ts-method">get</a><span class="ts-punctuation">(</span><a id="t170" href="#def--root-ts-literate-src-html-service-ts-5925" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span> <span class="ts-operator">??</span> <a id="t171" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t172" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t173" class="ts-identifier">readFile</span><span class="ts-punctuation">(</span><a id="t174" href="#def--root-ts-literate-src-html-service-ts-5925" class="ts-identifier ts-parameter">name</a><span class="ts-punctuation">)</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-5991" href="#def--root-ts-literate-src-html-service-ts-5991" class="ts-identifier ts-property">readDirectory</a><span class="ts-punctuation">:</span> <a id="t176" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t177" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t178" class="ts-identifier">readDirectory</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-6032" href="#def--root-ts-literate-src-html-service-ts-6032" class="ts-identifier ts-property">directoryExists</a><span class="ts-punctuation">:</span> <a id="t180" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t181" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t182" class="ts-identifier">directoryExists</span><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-service-ts-6077" href="#def--root-ts-literate-src-html-service-ts-6077" class="ts-identifier ts-property">getDirectories</a><span class="ts-punctuation">:</span> <a id="t184" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t185" class="ts-identifier">sys</span><span class="ts-punctuation">.</span><span id="t186" class="ts-identifier">getDirectories</span><span class="ts-punctuation">,</span>
+  <span class="ts-punctuation">}</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">return</span> <a id="t187" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t188" class="ts-identifier">createLanguageService</span><span class="ts-punctuation">(</span><a id="t189" href="#def--root-ts-literate-src-html-service-ts-4452" class="ts-identifier ts-variable">host</a><span class="ts-punctuation">,</span> <a id="t190" href="#def--root-ts-literate-src-html-service-ts-779" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t191" class="ts-identifier">createDocumentRegistry</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre>
+</div>
+<script>
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+</script>
+<div id="quickinfo-templates" style="display:none">
+<template id="qi-t0"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-779"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t1"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/node_modules/typescript/lib/typescript&quot;</span></template>
+<template id="qi-t2">(alias) <span style="color:#D73A49">function</span> <span style="color:#6F42C1">illiterate</span>(<span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>
+<span style="color:#D73A49">import</span> illiterate</template>
+<template id="qi-t3"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/src/extract&quot;</span></template>
+<template id="qi-t4"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">createLanguageService</span>(<span style="color:#E36209">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1385"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">createLanguageService</span>(<span style="color:#E36209">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t5">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1407">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-t6">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1425">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t7"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t8"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">ts</span>.LanguageService <span style="color:#D73A49">=</span> <span style="color:#6A737D">/*unresolved*/</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t9"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1471"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-t10"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t11"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">ts</span>.LanguageServiceHost <span style="color:#D73A49">=</span> <span style="color:#6A737D">/*unresolved*/</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t12">(property) <span style="color:#6F42C1">getScriptFileNames</span>: () <span style="color:#D73A49">=&gt;</span> string[]</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1563">(property) <span style="color:#6F42C1">getScriptFileNames</span>: () <span style="color:#D73A49">=&gt;</span> string[]</template>
+<template id="qi-t13">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-t14">(property) <span style="color:#6F42C1">getScriptVersion</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-1792">(property) <span style="color:#6F42C1">getScriptVersion</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-t15">(property) <span style="color:#6F42C1">getScriptSnapshot</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2103">(property) <span style="color:#6F42C1">getScriptSnapshot</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t16">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2123">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t17">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t18">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-t19"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t20">any</template>
+<template id="qi-t21">any</template>
+<template id="qi-t22">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t23"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t24">any</template>
+<template id="qi-t25">any</template>
+<template id="qi-t26">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t27"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t28">any</template>
+<template id="qi-t29">any</template>
+<template id="qi-t30"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t31">any</template>
+<template id="qi-t32">any</template>
+<template id="qi-t33">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t34"><span style="color:#D73A49">var</span> undefined</template>
+<template id="qi-t35">(property) <span style="color:#6F42C1">getCurrentDirectory</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2380">(property) <span style="color:#6F42C1">getCurrentDirectory</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-t36"><span style="color:#D73A49">var</span> process<span style="color:#D73A49">:</span> <span style="color:#6F42C1">NodeJS</span>.<span style="color:#6F42C1">Process</span></template>
+<template id="qi-t37">(method) NodeJS.Process.<span style="color:#6F42C1">cwd</span>(): string</template>
+<template id="qi-t38">(property) <span style="color:#6F42C1">getCompilationSettings</span>: () <span style="color:#D73A49">=&gt;</span> {
+    <span style="color:#6F42C1">target</span>: any;
+    <span style="color:#6F42C1">module</span>: any;
+    <span style="color:#6F42C1">strict</span>: boolean;
+}</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2426">(property) <span style="color:#6F42C1">getCompilationSettings</span>: () <span style="color:#D73A49">=&gt;</span> {
+    <span style="color:#6F42C1">target</span>: any;
+    <span style="color:#6F42C1">module</span>: any;
+    <span style="color:#6F42C1">strict</span>: boolean;
+}</template>
+<template id="qi-t39">(property) <span style="color:#6F42C1">target</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2465">(property) <span style="color:#6F42C1">target</span>: any</template>
+<template id="qi-t40"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t41">any</template>
+<template id="qi-t42">any</template>
+<template id="qi-t43">(property) <span style="color:#6F42C1">module</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2503">(property) <span style="color:#6F42C1">module</span>: any</template>
+<template id="qi-t44"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t45">any</template>
+<template id="qi-t46">any</template>
+<template id="qi-t47">(property) <span style="color:#6F42C1">strict</span>: boolean</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2539">(property) <span style="color:#6F42C1">strict</span>: boolean</template>
+<template id="qi-t48">(property) <span style="color:#6F42C1">getDefaultLibFileName</span>: (<span style="color:#E36209">opts</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2565">(property) <span style="color:#6F42C1">getDefaultLibFileName</span>: (<span style="color:#E36209">opts</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t49">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2589">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-t50"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t51">any</template>
+<template id="qi-t52">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-t53">(property) <span style="color:#6F42C1">fileExists</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2934">(property) <span style="color:#6F42C1">fileExists</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t54">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-2947">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t55">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t56">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-t57"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t58">any</template>
+<template id="qi-t59">any</template>
+<template id="qi-t60">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t61">(property) <span style="color:#6F42C1">readFile</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-3006">(property) <span style="color:#6F42C1">readFile</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t62">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-3017">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t63">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t64">(parameter) <span style="color:#6F42C1">filename</span>: string</template>
+<template id="qi-t65">(parameter) <span style="color:#6F42C1">source</span>: string</template>
+<template id="qi-t66"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t67">any</template>
+<template id="qi-t68">any</template>
+<template id="qi-t69">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t70">(property) <span style="color:#6F42C1">readDirectory</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-3082">(property) <span style="color:#6F42C1">readDirectory</span>: any</template>
+<template id="qi-t71"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t72">any</template>
+<template id="qi-t73">any</template>
+<template id="qi-t74">(property) <span style="color:#6F42C1">directoryExists</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-3123">(property) <span style="color:#6F42C1">directoryExists</span>: any</template>
+<template id="qi-t75"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t76">any</template>
+<template id="qi-t77">any</template>
+<template id="qi-t78">(property) <span style="color:#6F42C1">getDirectories</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-3168">(property) <span style="color:#6F42C1">getDirectories</span>: any</template>
+<template id="qi-t79"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t80">any</template>
+<template id="qi-t81">any</template>
+<template id="qi-t82"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t83">any</template>
+<template id="qi-t84"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-t85"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t86">any</template>
+<template id="qi-t87"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">createMultiFileLanguageService</span>(<span style="color:#E36209">files</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4014"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">createMultiFileLanguageService</span>(<span style="color:#E36209">files</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;)<span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t88">(parameter) <span style="color:#6F42C1">files</span>: Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4045">(parameter) <span style="color:#6F42C1">files</span>: Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t89"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#6F42C1">K</span>, <span style="color:#6F42C1">V</span>&gt;</template>
+<template id="qi-t90"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t91"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">ts</span>.LanguageService <span style="color:#D73A49">=</span> <span style="color:#6A737D">/*unresolved*/</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t92"><span style="color:#D73A49">const</span> <span style="color:#005CC5">fileNames</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4103"><span style="color:#D73A49">const</span> <span style="color:#005CC5">fileNames</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t93">(parameter) <span style="color:#6F42C1">files</span>: Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t94">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">keys</span>(): MapIterator<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t95"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4299"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t96"><span style="color:#D73A49">var</span> Map<span style="color:#D73A49">:</span> <span style="color:#6F42C1">MapConstructor</span>
+<span style="color:#D73A49">new</span> &lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;(<span style="color:#E36209">iterable</span><span style="color:#D73A49">?:</span> <span style="color:#6F42C1">Iterable</span>&lt;<span style="color:#D73A49">readonly</span> [<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>]&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span>) <span style="color:#D73A49">=&gt;</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt; (<span style="color:#D73A49">+</span><span style="color:#005CC5">3</span> overloads)</template>
+<template id="qi-t97"><span style="color:#D73A49">const</span> <span style="color:#005CC5">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4359"><span style="color:#D73A49">const</span> <span style="color:#005CC5">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t98"><span style="color:#D73A49">const</span> <span style="color:#005CC5">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4365"><span style="color:#D73A49">const</span> <span style="color:#005CC5">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t99">(parameter) <span style="color:#6F42C1">files</span>: Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t100"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t101">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">set</span>(key: string, value: string): Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t102"><span style="color:#D73A49">const</span> <span style="color:#005CC5">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t103">(alias) <span style="color:#6F42C1">illiterate</span>(source: string): string
+<span style="color:#D73A49">import</span> illiterate</template>
+<template id="qi-t104"><span style="color:#D73A49">const</span> <span style="color:#005CC5">source</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t105"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4452"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-t106"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t107"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">ts</span>.LanguageServiceHost <span style="color:#D73A49">=</span> <span style="color:#6A737D">/*unresolved*/</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t108">(property) <span style="color:#6F42C1">getScriptFileNames</span>: () <span style="color:#D73A49">=&gt;</span> string[]</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4693">(property) <span style="color:#6F42C1">getScriptFileNames</span>: () <span style="color:#D73A49">=&gt;</span> string[]</template>
+<template id="qi-t109"><span style="color:#D73A49">const</span> <span style="color:#005CC5">fileNames</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t110">(property) <span style="color:#6F42C1">getScriptVersion</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4734">(property) <span style="color:#6F42C1">getScriptVersion</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-t111">(property) <span style="color:#6F42C1">getScriptSnapshot</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4767">(property) <span style="color:#6F42C1">getScriptSnapshot</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t112">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4787">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t113"><span style="color:#D73A49">const</span> <span style="color:#005CC5">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-4810"><span style="color:#D73A49">const</span> <span style="color:#005CC5">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t114"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t115">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">get</span>(key: string): string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t116">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t117"><span style="color:#D73A49">const</span> <span style="color:#005CC5">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t118"><span style="color:#D73A49">var</span> undefined</template>
+<template id="qi-t119"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t120">any</template>
+<template id="qi-t121">any</template>
+<template id="qi-t122"><span style="color:#D73A49">const</span> <span style="color:#005CC5">content</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t123"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t124">any</template>
+<template id="qi-t125">any</template>
+<template id="qi-t126">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t127"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t128">any</template>
+<template id="qi-t129">any</template>
+<template id="qi-t130"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t131">any</template>
+<template id="qi-t132">any</template>
+<template id="qi-t133">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t134"><span style="color:#D73A49">var</span> undefined</template>
+<template id="qi-t135">(property) <span style="color:#6F42C1">getCurrentDirectory</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5321">(property) <span style="color:#6F42C1">getCurrentDirectory</span>: () <span style="color:#D73A49">=&gt;</span> string</template>
+<template id="qi-t136"><span style="color:#D73A49">var</span> process<span style="color:#D73A49">:</span> <span style="color:#6F42C1">NodeJS</span>.<span style="color:#6F42C1">Process</span></template>
+<template id="qi-t137">(method) NodeJS.Process.<span style="color:#6F42C1">cwd</span>(): string</template>
+<template id="qi-t138">(property) <span style="color:#6F42C1">getCompilationSettings</span>: () <span style="color:#D73A49">=&gt;</span> {
+    <span style="color:#6F42C1">target</span>: any;
+    <span style="color:#6F42C1">module</span>: any;
+    <span style="color:#6F42C1">moduleResolution</span>: any;
+    <span style="color:#6F42C1">strict</span>: boolean;
+}</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5567">(property) <span style="color:#6F42C1">getCompilationSettings</span>: () <span style="color:#D73A49">=&gt;</span> {
+    <span style="color:#6F42C1">target</span>: any;
+    <span style="color:#6F42C1">module</span>: any;
+    <span style="color:#6F42C1">moduleResolution</span>: any;
+    <span style="color:#6F42C1">strict</span>: boolean;
+}</template>
+<template id="qi-t139">(property) <span style="color:#6F42C1">target</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5606">(property) <span style="color:#6F42C1">target</span>: any</template>
+<template id="qi-t140"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t141">any</template>
+<template id="qi-t142">any</template>
+<template id="qi-t143">(property) <span style="color:#6F42C1">module</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5644">(property) <span style="color:#6F42C1">module</span>: any</template>
+<template id="qi-t144"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t145">any</template>
+<template id="qi-t146">any</template>
+<template id="qi-t147">(property) <span style="color:#6F42C1">moduleResolution</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5680">(property) <span style="color:#6F42C1">moduleResolution</span>: any</template>
+<template id="qi-t148"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t149">any</template>
+<template id="qi-t150">any</template>
+<template id="qi-t151">(property) <span style="color:#6F42C1">strict</span>: boolean</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5738">(property) <span style="color:#6F42C1">strict</span>: boolean</template>
+<template id="qi-t152">(property) <span style="color:#6F42C1">getDefaultLibFileName</span>: (<span style="color:#E36209">opts</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5764">(property) <span style="color:#6F42C1">getDefaultLibFileName</span>: (<span style="color:#E36209">opts</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t153">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5788">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-t154"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t155">any</template>
+<template id="qi-t156">(parameter) <span style="color:#6F42C1">opts</span>: any</template>
+<template id="qi-t157">(property) <span style="color:#6F42C1">fileExists</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5833">(property) <span style="color:#6F42C1">fileExists</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t158">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5846">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t159"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t160">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">has</span>(key: string): boolean</template>
+<template id="qi-t161">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t162"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t163">any</template>
+<template id="qi-t164">any</template>
+<template id="qi-t165">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t166">(property) <span style="color:#6F42C1">readFile</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5914">(property) <span style="color:#6F42C1">readFile</span>: (<span style="color:#E36209">name</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>) <span style="color:#D73A49">=&gt;</span> any</template>
+<template id="qi-t167">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5925">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t168"><span style="color:#D73A49">const</span> <span style="color:#005CC5">illiteratedFiles</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t169">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">get</span>(key: string): string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t170">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t171"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t172">any</template>
+<template id="qi-t173">any</template>
+<template id="qi-t174">(parameter) <span style="color:#6F42C1">name</span>: any</template>
+<template id="qi-t175">(property) <span style="color:#6F42C1">readDirectory</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-5991">(property) <span style="color:#6F42C1">readDirectory</span>: any</template>
+<template id="qi-t176"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t177">any</template>
+<template id="qi-t178">any</template>
+<template id="qi-t179">(property) <span style="color:#6F42C1">directoryExists</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-6032">(property) <span style="color:#6F42C1">directoryExists</span>: any</template>
+<template id="qi-t180"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t181">any</template>
+<template id="qi-t182">any</template>
+<template id="qi-t183">(property) <span style="color:#6F42C1">getDirectories</span>: any</template>
+<template id="qi-def--root-ts-literate-src-html-service-ts-6077">(property) <span style="color:#6F42C1">getDirectories</span>: any</template>
+<template id="qi-t184"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t185">any</template>
+<template id="qi-t186">any</template>
+<template id="qi-t187"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t188">any</template>
+<template id="qi-t189"><span style="color:#D73A49">const</span> <span style="color:#005CC5">host</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageServiceHost</span></template>
+<template id="qi-t190"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t191">any</template>
+</div>
+</body>
+</html>

@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>render.ts</title>
+  <style>
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+/* the watermark is a subtle header with an "index" link on the left
+   and "ts-literate" branding on the right. it uses pointer-events: none
+   so it doesn't interfere with the content underneath. */
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #ccc;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.watermark a {
+  color: #ccc;
+  text-decoration: none;
+  border-bottom: none;
+  pointer-events: auto;
+}
+
+.watermark a:hover {
+  color: #999;
+  background: none;
+}
+
+.watermark-right {
+  font-style: italic;
+}
+
+/* the .literate container constrains prose to 80ch width, which is
+   a comfortable reading measure for proportional fonts. */
+.literate {
+  font-size: 15px;
+  max-width: 80ch;
+  margin: 0 auto;
+}
+
+/* prose styles
+
+   prose sections get full markdown styling — headings, lists, blockquotes,
+   code blocks (within prose, these are fenced code blocks highlighted by
+   shiki), tables, etc. */
+.prose {
+  margin: 1.5rem 0;
+}
+
+.prose h1 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.3rem;
+}
+
+.prose h2 {
+  font-size: 1.4rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.prose h5, .prose h6 {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+
+.prose ul, .prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > ul, .prose li > ol {
+  margin: 0.25rem 0;
+}
+
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  background: #f6f8fa;
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #f6f8fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.prose pre {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 1.5rem 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.prose th, .prose td {
+  border: 1px solid #dfe2e5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) {
+  background: #f6f8fa;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* code block styles
+
+   code blocks (the actual typescript source, not fenced code in prose)
+   use the full-width breakout technique. the negative margins and calc
+   values make the code extend to the viewport edges while keeping the
+   text aligned with the prose column. */
+pre.code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #f6f8fa;
+  padding: 1rem;
+  margin: 0.5rem -1rem;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  padding-left: calc(50vw - 50% + 1rem);
+  padding-right: calc(50vw - 50% + 1rem);
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* syntax highlighting colors
+
+   these follow the github-light theme from VS Code / shiki:
+
+   color     | usage
+   ----------|------------------------------------
+   #d73a49   | keywords, operators, storage
+   #6f42c1   | functions, classes, types (purple)
+   #005cc5   | constants, properties (blue)
+   #032f62   | strings
+   #6a737d   | comments
+   #22863a   | jsx tags (green)
+   #24292e   | default text */
+
+/* syntactic tokens */
+.ts-keyword { color: #d73a49; }
+.ts-operator { color: #d73a49; }
+.ts-string { color: #032f62; }
+.ts-number { color: #005cc5; }
+.ts-comment { color: #6a737d; font-style: italic; }
+.ts-identifier { color: #24292e; }
+.ts-punctuation { color: #24292e; }
+
+/* semantic tokens - entity names purple */
+.ts-class { color: #6f42c1; }
+.ts-interface { color: #6f42c1; }
+.ts-enum { color: #6f42c1; }
+.ts-type { color: #6f42c1; }
+.ts-type-parameter { color: #6f42c1; }
+.ts-namespace { color: #6f42c1; }
+.ts-function { color: #6f42c1; }
+.ts-method { color: #6f42c1; }
+
+/* semantic tokens - constants blue */
+.ts-property { color: #005cc5; }
+.ts-enum-member { color: #005cc5; }
+
+/* semantic tokens - variables default (variable.other scope) */
+.ts-variable { color: #24292e; }
+.ts-parameter { color: #24292e; }
+
+/* jsx tags green */
+.ts-jsx-open-tag-name { color: #22863a; }
+.ts-jsx-close-tag-name { color: #22863a; }
+.ts-jsx-self-closing-tag-name { color: #22863a; }
+
+/* syntactic fallbacks for declarations */
+.ts-class-name { color: #6f42c1; }
+.ts-interface-name { color: #6f42c1; }
+.ts-enum-name { color: #6f42c1; }
+.ts-type-parameter-name { color: #6f42c1; }
+.ts-module-name { color: #6f42c1; }
+.ts-parameter-name { color: #24292e; }
+
+/* hover highlighting
+
+   when you mouse over any identifier, all other references to the same
+   definition light up with a yellow background. this makes it easy to
+   see at a glance where a variable is used. */
+/* hover highlight */
+.hover-highlight {
+  background: #fff3cd;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #888;
+}
+
+a:hover {
+  background: #e8f4ff;
+}
+
+/* tooltip styles
+
+   the quickinfo tooltip appears on hover and shows type information
+   (the same thing VS Code shows). it uses position: fixed with a
+   CSS transform for GPU-accelerated positioning, and fades in/out
+   with a short opacity transition. */
+/* quickinfo tooltip - using transform for GPU acceleration */
+#tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  color: #333;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  max-width: 50vw;
+  white-space: pre-wrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 1000;
+  will-change: transform;
+}
+
+#tooltip.visible {
+  opacity: 1;
+}
+
+</style>
+</head>
+<body>
+<script>
+(function() {
+  var tooltip = document.createElement('div');
+  tooltip.id = 'tooltip';
+  document.body.appendChild(tooltip);
+  
+  function showTooltip(id) {
+    var tmpl = document.getElementById('qi-' + id);
+    if (tmpl) {
+      tooltip.textContent = '';
+      tooltip.appendChild(tmpl.content.cloneNode(true));
+      tooltip.classList.add('visible');
+    }
+  }
+  
+  function hideTooltip() {
+    tooltip.classList.remove('visible');
+  }
+  
+  function positionTooltip(e) {
+    tooltip.style.transform = 'translate(' + (e.clientX + 12) + 'px, ' + (e.clientY + 12) + 'px)';
+  }
+  
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      positionTooltip(e);
+      showTooltip(el.id);
+    }
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (tooltip.classList.contains('visible')) {
+      positionTooltip(e);
+    }
+  });
+  
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[id]');
+    if (el) {
+      hideTooltip();
+    }
+  });
+})();
+</script>
+<header class="watermark">
+  <a href="/" class="watermark-left">index</a>
+  <span class="watermark-right">ts-literate</span>
+</header>
+<div class="literate">
+<div class="prose"><h1>code block rendering</h1>
+<p>this is where the magic happens. for each code layer, we ask the
+typescript language service for two things:</p>
+<ol>
+<li><strong>syntactic classifications</strong> — the basic token types (keyword,
+string, identifier, comment, etc.). these map directly to CSS
+classes for syntax coloring.</li>
+<li><strong>semantic classifications</strong> — richer type information that tells
+us whether an identifier is a function, a class, a type parameter,
+etc. this lets us color functions differently from variables, for
+example, matching what VS Code does.</li>
+</ol>
+<p>we then walk through the tokens, look up their definitions (for
+cross-linking), fetch quickinfo (for hover tooltips), and render
+each one as an html element.</p>
+</div><pre class="code">
+<span class="ts-keyword">import</span> <a id="def--root-ts-literate-src-html-render-ts-774" href="#def--root-ts-literate-src-html-render-ts-774" class="ts-identifier">ts</a> <span class="ts-keyword">from</span> <a id="t1" href="../node_modules/typescript/lib/typescript.d.html#def--root-ts-literate-node-modules-typescript-lib-typescript-d-ts-812" class="ts-string">&quot;typescript&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <span class="ts-keyword">type</span> <span class="ts-punctuation">{</span> <a id="t2" href="../extract.html#def--root-ts-literate-src-extract-ts-655" class="ts-identifier">Layer</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t3" href="../extract.html#def--root-ts-literate-src-extract-ts-0" class="ts-string">&quot;../extract.js&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <span class="ts-keyword">type</span> <span class="ts-punctuation">{</span> <a id="t4" href="types.html#def--root-ts-literate-src-html-types-ts-3320" class="ts-identifier">TokenInfo</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t5" href="types.html#def--root-ts-literate-src-html-types-ts-0" class="ts-string">&quot;./types.js&quot;</a><span class="ts-punctuation">;</span>
+<span class="ts-keyword">import</span> <span class="ts-punctuation">{</span> <a id="t6" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-1429" class="ts-identifier">isLinkable</a><span class="ts-punctuation">,</span> <a id="t7" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-2188" class="ts-identifier">escapeHtml</a><span class="ts-punctuation">,</span> <a id="t8" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5832" class="ts-identifier">renderToken</a><span class="ts-punctuation">,</span> <span class="ts-keyword">type</span> <a id="t9" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5155" class="ts-identifier">ComputeLink</a> <span class="ts-punctuation">}</span> <span class="ts-keyword">from</span> <a id="t10" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-0" class="ts-string">&quot;./tokens.js&quot;</a><span class="ts-punctuation">;</span></pre><div class="prose"><h2>semantic token decoding</h2>
+<p>there are two levels of &quot;what is this token?&quot; that typescript can tell
+us. the syntactic level is cheap and obvious: keywords look like
+keywords, strings look like strings. but the <em>semantic</em> level requires
+actually type-checking the program. is <code>foo</code> a function or a variable?
+you can&#39;t know from syntax alone.</p>
+<p>typescript&#39;s semantic classification API encodes this information in a
+peculiar way: a flat array of triples <code>[start, length, encoding]</code> where
+the encoding packs the token type into bits 8 and up. we shift and
+index to get a human-readable type name.</p>
+</div><pre class="code">
+<span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-1616" href="#def--root-ts-literate-src-html-render-ts-1616" class="ts-identifier ts-variable">semanticTokenTypes</a> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span>
+  <span class="ts-string">&quot;class&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;enum&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;interface&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;namespace&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;type-parameter&quot;</span><span class="ts-punctuation">,</span> 
+  <span class="ts-string">&quot;type&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;parameter&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;variable&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;enum-member&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;property&quot;</span><span class="ts-punctuation">,</span> 
+  <span class="ts-string">&quot;function&quot;</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;method&quot;</span>
+<span class="ts-punctuation">]</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>the encoding packs the token type into the upper bits: shift right by 8,
+subtract 1 (it&#39;s 1-indexed for some reason), and you get an index into
+the array above. if the index is out of range, it&#39;s a token type we
+don&#39;t recognize — we return undefined and it just won&#39;t get a semantic
+class.</p>
+</div><pre class="code"><span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-render-ts-2112" href="#def--root-ts-literate-src-html-render-ts-2112" class="ts-identifier ts-function">decodeSemanticClassification</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-render-ts-2141" href="#def--root-ts-literate-src-html-render-ts-2141" class="ts-parameter-name ts-parameter">encoded</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span> <span class="ts-punctuation">|</span> <span class="ts-keyword">undefined</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-2188" href="#def--root-ts-literate-src-html-render-ts-2188" class="ts-identifier ts-variable">typeIdx</a> <span class="ts-operator">=</span> <span class="ts-punctuation">(</span><a id="t15" href="#def--root-ts-literate-src-html-render-ts-2141" class="ts-identifier ts-parameter">encoded</a> <span class="ts-operator">&gt;&gt;</span> <span class="ts-number">8</span><span class="ts-punctuation">)</span> <span class="ts-operator">-</span> <span class="ts-number">1</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t16" href="#def--root-ts-literate-src-html-render-ts-2188" class="ts-identifier ts-variable">typeIdx</a> <span class="ts-operator">&gt;=</span> <span class="ts-number">0</span> <span class="ts-operator">&amp;&amp;</span> <a id="t17" href="#def--root-ts-literate-src-html-render-ts-2188" class="ts-identifier ts-variable">typeIdx</a> <span class="ts-operator">&lt;</span> <a id="t18" href="#def--root-ts-literate-src-html-render-ts-1616" class="ts-identifier ts-variable">semanticTokenTypes</a><span class="ts-punctuation">.</span><a id="t19" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-57779" class="ts-identifier ts-property">length</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">return</span> <a id="t20" href="#def--root-ts-literate-src-html-render-ts-1616" class="ts-identifier ts-variable">semanticTokenTypes</a><span class="ts-punctuation">[</span><a id="t21" href="#def--root-ts-literate-src-html-render-ts-2188" class="ts-identifier ts-variable">typeIdx</a><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  <span class="ts-keyword">return</span> <span id="t22" class="ts-identifier">undefined</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><h2>RenderContext</h2>
+<p>rendering a code block requires a lot of ambient state — the language
+service, the current filename, a growing map of definitions we&#39;ve
+discovered, maybe a set of external files we&#39;ve noticed. rather than
+threading all of this as separate arguments, we bundle it into a
+context object that gets passed around.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">interface</span> <a id="def--root-ts-literate-src-html-render-ts-2719" href="#def--root-ts-literate-src-html-render-ts-2719" class="ts-interface-name ts-interface">RenderContext</a> <span class="ts-punctuation">{</span>
+  <a id="def--root-ts-literate-src-html-render-ts-2737" href="#def--root-ts-literate-src-html-render-ts-2737" class="ts-identifier ts-property">service</a><span class="ts-punctuation">:</span> <a id="t25" href="#def--root-ts-literate-src-html-render-ts-774" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t26" class="ts-identifier ts-type">LanguageService</span><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-2768" href="#def--root-ts-literate-src-html-render-ts-2768" class="ts-identifier ts-property">filename</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>this map is <em>shared</em> across all files in a multi-file build. as we
+render each file, we discover definition sites and register them here.
+later files can then link back to definitions found in earlier files.</p>
+</div><pre class="code">  <a id="def--root-ts-literate-src-html-render-ts-3014" href="#def--root-ts-literate-src-html-render-ts-3014" class="ts-identifier ts-property">definitions</a><span class="ts-punctuation">:</span> <a id="t29" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-interface">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <span class="ts-punctuation">{</span> <a id="def--root-ts-literate-src-html-render-ts-3041" href="#def--root-ts-literate-src-html-render-ts-3041" class="ts-identifier ts-property">file</a><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span><span class="ts-punctuation">;</span> <a id="def--root-ts-literate-src-html-render-ts-3055" href="#def--root-ts-literate-src-html-render-ts-3055" class="ts-identifier ts-property">line</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span><span class="ts-punctuation">;</span> <a id="def--root-ts-literate-src-html-render-ts-3069" href="#def--root-ts-literate-src-html-render-ts-3069" class="ts-identifier ts-property">column</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span> <span class="ts-punctuation">}</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-3090" href="#def--root-ts-literate-src-html-render-ts-3090" class="ts-identifier ts-property">externalFiles</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <a id="t34" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-3398" class="ts-identifier ts-interface">Set</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-3121" href="#def--root-ts-literate-src-html-render-ts-3121" class="ts-identifier ts-property">knownFiles</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <a id="t36" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-interface">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-3157" href="#def--root-ts-literate-src-html-render-ts-3157" class="ts-identifier ts-method">computeLink</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <a id="t38" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5155" class="ts-identifier ts-type">ComputeLink</a><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-3186" href="#def--root-ts-literate-src-html-render-ts-3186" class="ts-identifier ts-property">includeExternals</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <span class="ts-keyword">boolean</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>we collect quickinfo (type signatures, jsdoc) during rendering and
+stash it here keyed by token id. once the page is fully rendered,
+<code>wrapHtml</code> turns this map into hidden <code>&lt;template&gt;</code> elements that the
+client-side tooltip script can clone on hover.</p>
+</div><pre class="code">  <a id="def--root-ts-literate-src-html-render-ts-3489" href="#def--root-ts-literate-src-html-render-ts-3489" class="ts-identifier ts-property">quickInfoMap</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <a id="t41" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-interface">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">string</span><span class="ts-punctuation">,</span> <span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">;</span>
+  <a id="def--root-ts-literate-src-html-render-ts-3527" href="#def--root-ts-literate-src-html-render-ts-3527" class="ts-identifier ts-property">tokenIdCounter</a><span class="ts-punctuation">?</span><span class="ts-punctuation">:</span> <span class="ts-punctuation">{</span> <a id="def--root-ts-literate-src-html-render-ts-3546" href="#def--root-ts-literate-src-html-render-ts-3546" class="ts-identifier ts-property">value</a><span class="ts-punctuation">:</span> <span class="ts-keyword">number</span> <span class="ts-punctuation">}</span><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre><div class="prose"><h2>renderCodeBlock</h2>
+<p>this is the heart of ts-literate. given a code layer, we want to
+produce html that looks like a code editor — colored tokens, clickable
+identifiers, hover tooltips — but as a static page. the trick is that
+we&#39;re reconstructing what VS Code does at runtime, but baking the
+results into html at build time.</p>
+</div><pre class="code">
+<span class="ts-keyword">export</span> <span class="ts-keyword">function</span> <a id="def--root-ts-literate-src-html-render-ts-3935" href="#def--root-ts-literate-src-html-render-ts-3935" class="ts-identifier ts-function">renderCodeBlock</a><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-render-ts-3951" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-parameter-name ts-parameter">ctx</a><span class="ts-punctuation">:</span> <a id="t46" href="#def--root-ts-literate-src-html-render-ts-2719" class="ts-identifier ts-interface">RenderContext</a><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-render-ts-3971" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-parameter-name ts-parameter">layer</a><span class="ts-punctuation">:</span> <a id="t48" href="../extract.html#def--root-ts-literate-src-extract-ts-655" class="ts-identifier ts-interface">Layer</a><span class="ts-punctuation">)</span><span class="ts-punctuation">:</span> <span class="ts-keyword">string</span> <span class="ts-punctuation">{</span>
+  <span class="ts-keyword">const</span> <span class="ts-punctuation">{</span> <a id="t49" href="#def--root-ts-literate-src-html-render-ts-2737" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">,</span> <a id="t50" href="#def--root-ts-literate-src-html-render-ts-2768" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> <a id="t51" href="#def--root-ts-literate-src-html-render-ts-3014" class="ts-identifier ts-variable">definitions</a> <span class="ts-punctuation">}</span> <span class="ts-operator">=</span> <a id="t52" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-4056" href="#def--root-ts-literate-src-html-render-ts-4056" class="ts-identifier ts-variable">program</a> <span class="ts-operator">=</span> <a id="t54" href="#def--root-ts-literate-src-html-render-ts-4005" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">.</span><span id="t55" class="ts-identifier">getProgram</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><span class="ts-operator">!</span><a id="t56" href="#def--root-ts-literate-src-html-render-ts-4056" class="ts-identifier ts-variable">program</a><span class="ts-punctuation">)</span> <span class="ts-keyword">return</span> <span class="ts-string">`&lt;pre class=&quot;code&quot;&gt;${</span><a id="t57" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-2188" class="ts-identifier ts-function">escapeHtml</a><span class="ts-punctuation">(</span><a id="t58" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t59" href="../extract.html#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">)</span><span class="ts-string">}&lt;/pre&gt;`</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-4178" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a> <span class="ts-operator">=</span> <a id="t61" href="#def--root-ts-literate-src-html-render-ts-4056" class="ts-identifier ts-variable">program</a><span class="ts-punctuation">.</span><span id="t62" class="ts-identifier">getSourceFile</span><span class="ts-punctuation">(</span><a id="t63" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><span class="ts-operator">!</span><a id="t64" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a><span class="ts-punctuation">)</span> <span class="ts-keyword">return</span> <span class="ts-string">`&lt;pre class=&quot;code&quot;&gt;${</span><a id="t65" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-2188" class="ts-identifier ts-function">escapeHtml</a><span class="ts-punctuation">(</span><a id="t66" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t67" href="../extract.html#def--root-ts-literate-src-extract-ts-684" class="ts-identifier ts-property">content</a><span class="ts-punctuation">)</span><span class="ts-string">}&lt;/pre&gt;`</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>first, we ask for the cheap stuff: syntactic classification. this is
+basically a tokenizer — it tells us where keywords, strings, comments,
+and identifiers are without doing any type analysis. fast, but it
+can&#39;t distinguish a function call from a variable reference.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-4608" href="#def--root-ts-literate-src-html-render-ts-4608" class="ts-identifier ts-variable">syntacticSpans</a> <span class="ts-operator">=</span> <a id="t69" href="#def--root-ts-literate-src-html-render-ts-4005" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">.</span><span id="t70" class="ts-identifier">getSyntacticClassifications</span><span class="ts-punctuation">(</span><a id="t71" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> <span class="ts-punctuation">{</span>
+    <a id="def--root-ts-literate-src-html-render-ts-4677" href="#def--root-ts-literate-src-html-render-ts-4677" class="ts-identifier ts-property">start</a><span class="ts-punctuation">:</span> <a id="t73" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t74" href="../extract.html#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a><span class="ts-punctuation">,</span>
+    <a id="def--root-ts-literate-src-html-render-ts-4702" href="#def--root-ts-literate-src-html-render-ts-4702" class="ts-identifier ts-property">length</a><span class="ts-punctuation">:</span> <a id="t76" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t77" href="../extract.html#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a>
+  <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>then we ask for the expensive stuff. semantic classification requires
+the full type checker to run. in return, we get the good stuff: this
+identifier isn&#39;t just an &quot;identifier&quot; — it&#39;s a <em>function</em>. that one&#39;s
+an <em>interface</em>. this lets us color them differently, just like VS Code
+would.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-5065" href="#def--root-ts-literate-src-html-render-ts-5065" class="ts-identifier ts-variable">semanticResult</a> <span class="ts-operator">=</span> <a id="t79" href="#def--root-ts-literate-src-html-render-ts-4005" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">.</span><span id="t80" class="ts-identifier">getEncodedSemanticClassifications</span><span class="ts-punctuation">(</span>
+    <a id="t81" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> 
+    <span class="ts-punctuation">{</span> <a id="def--root-ts-literate-src-html-render-ts-5146" href="#def--root-ts-literate-src-html-render-ts-5146" class="ts-identifier ts-property">start</a><span class="ts-punctuation">:</span> <a id="t83" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t84" href="../extract.html#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-render-ts-5167" href="#def--root-ts-literate-src-html-render-ts-5167" class="ts-identifier ts-property">length</a><span class="ts-punctuation">:</span> <a id="t86" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t87" href="../extract.html#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a> <span class="ts-punctuation">}</span><span class="ts-punctuation">,</span>
+    <a id="t88" href="#def--root-ts-literate-src-html-render-ts-774" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t89" class="ts-identifier">SemanticClassificationFormat</span><span class="ts-punctuation">.</span><span id="t90" class="ts-identifier">TwentyTwenty</span>
+  <span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  </pre><div class="prose"><p>the semantic result is a flat array of triples: [start, length, encoding].
+we decode each triple and build a lookup map from position → type name,
+so we can quickly check &quot;is there a semantic type at position N?&quot; when
+we&#39;re iterating through syntactic tokens.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-5548" href="#def--root-ts-literate-src-html-render-ts-5548" class="ts-identifier ts-variable">semanticTypes</a> <span class="ts-operator">=</span> <span class="ts-keyword">new</span> <a id="t92" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-863" class="ts-identifier ts-class">Map</a><span class="ts-punctuation">&lt;</span><span class="ts-keyword">number</span><span class="ts-punctuation">,</span> <span class="ts-keyword">string</span><span class="ts-punctuation">&gt;</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-html-render-ts-5602" href="#def--root-ts-literate-src-html-render-ts-5602" class="ts-identifier ts-variable">i</a> <span class="ts-operator">=</span> <span class="ts-number">0</span><span class="ts-punctuation">;</span> <a id="t94" href="#def--root-ts-literate-src-html-render-ts-5602" class="ts-identifier ts-variable">i</a> <span class="ts-operator">&lt;</span> <a id="t95" href="#def--root-ts-literate-src-html-render-ts-5065" class="ts-identifier ts-variable">semanticResult</a><span class="ts-punctuation">.</span><span id="t96" class="ts-identifier">spans</span><span class="ts-punctuation">.</span><span id="t97" class="ts-identifier">length</span><span class="ts-punctuation">;</span> <a id="t98" href="#def--root-ts-literate-src-html-render-ts-5602" class="ts-identifier ts-variable">i</a> <span class="ts-operator">+=</span> <span class="ts-number">3</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-5662" href="#def--root-ts-literate-src-html-render-ts-5662" class="ts-identifier ts-variable">start</a> <span class="ts-operator">=</span> <a id="t100" href="#def--root-ts-literate-src-html-render-ts-5065" class="ts-identifier ts-variable">semanticResult</a><span class="ts-punctuation">.</span><span id="t101" class="ts-identifier">spans</span><span class="ts-punctuation">[</span><a id="t102" href="#def--root-ts-literate-src-html-render-ts-5602" class="ts-identifier ts-variable">i</a><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-5705" href="#def--root-ts-literate-src-html-render-ts-5705" class="ts-identifier ts-variable">encoded</a> <span class="ts-operator">=</span> <a id="t104" href="#def--root-ts-literate-src-html-render-ts-5065" class="ts-identifier ts-variable">semanticResult</a><span class="ts-punctuation">.</span><span id="t105" class="ts-identifier">spans</span><span class="ts-punctuation">[</span><a id="t106" href="#def--root-ts-literate-src-html-render-ts-5602" class="ts-identifier ts-variable">i</a> <span class="ts-operator">+</span> <span class="ts-number">2</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-5754" href="#def--root-ts-literate-src-html-render-ts-5754" class="ts-identifier ts-variable">semType</a> <span class="ts-operator">=</span> <a id="t108" href="#def--root-ts-literate-src-html-render-ts-2112" class="ts-identifier ts-function">decodeSemanticClassification</a><span class="ts-punctuation">(</span><a id="t109" href="#def--root-ts-literate-src-html-render-ts-5705" class="ts-identifier ts-variable">encoded</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t110" href="#def--root-ts-literate-src-html-render-ts-5754" class="ts-identifier ts-variable">semType</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <a id="t111" href="#def--root-ts-literate-src-html-render-ts-5548" class="ts-identifier ts-variable">semanticTypes</a><span class="ts-punctuation">.</span><a id="t112" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1997" class="ts-identifier ts-method">set</a><span class="ts-punctuation">(</span><a id="t113" href="#def--root-ts-literate-src-html-render-ts-5662" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">,</span> <a id="t114" href="#def--root-ts-literate-src-html-render-ts-5754" class="ts-identifier ts-variable">semType</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+  <span class="ts-punctuation">}</span>
+  </pre><div class="prose"><p>now we marry the two: for each syntactic span, we look up whether
+there&#39;s a semantic type at that position. a token might be syntactically
+an &quot;identifier&quot; but semantically a &quot;function&quot; — it gets both classes,
+and the CSS can make functions purple while leaving plain variables black.</p>
+</div><pre class="code">  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6192" href="#def--root-ts-literate-src-html-render-ts-6192" class="ts-identifier ts-variable">tokens</a><span class="ts-punctuation">:</span> <a id="t116" href="types.html#def--root-ts-literate-src-html-types-ts-3320" class="ts-identifier ts-interface">TokenInfo</a><span class="ts-punctuation">[</span><span class="ts-punctuation">]</span> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6234" href="#def--root-ts-literate-src-html-render-ts-6234" class="ts-identifier ts-variable">span</a> <span class="ts-keyword">of</span> <a id="t118" href="#def--root-ts-literate-src-html-render-ts-4608" class="ts-identifier ts-variable">syntacticSpans</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6270" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a> <span class="ts-operator">=</span> <a id="t120" href="#def--root-ts-literate-src-html-render-ts-6234" class="ts-identifier ts-variable">span</a><span class="ts-punctuation">.</span><span id="t121" class="ts-identifier">textSpan</span><span class="ts-punctuation">.</span><span id="t122" class="ts-identifier">start</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6309" href="#def--root-ts-literate-src-html-render-ts-6309" class="ts-identifier ts-variable">length</a> <span class="ts-operator">=</span> <a id="t124" href="#def--root-ts-literate-src-html-render-ts-6234" class="ts-identifier ts-variable">span</a><span class="ts-punctuation">.</span><span id="t125" class="ts-identifier">textSpan</span><span class="ts-punctuation">.</span><span id="t126" class="ts-identifier">length</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6350" href="#def--root-ts-literate-src-html-render-ts-6350" class="ts-identifier ts-variable">text</a> <span class="ts-operator">=</span> <a id="t128" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a><span class="ts-punctuation">.</span><span id="t129" class="ts-identifier">text</span><span class="ts-punctuation">.</span><span id="t130" class="ts-identifier">slice</span><span class="ts-punctuation">(</span><a id="t131" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">,</span> <a id="t132" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a> <span class="ts-operator">+</span> <a id="t133" href="#def--root-ts-literate-src-html-render-ts-6309" class="ts-identifier ts-variable">length</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span></pre><div class="prose"><p>the syntactic classification gives us one class (e.g., &quot;identifier&quot;).
+if there&#39;s a semantic classification at the same position, we add that
+too (e.g., &quot;function&quot;). the token ends up with classes like
+<code>ts-identifier ts-function</code>, and the CSS can target either or both.</p>
+</div><pre class="code">    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6714" href="#def--root-ts-literate-src-html-render-ts-6714" class="ts-identifier ts-variable">classes</a> <span class="ts-operator">=</span> <span class="ts-punctuation">[</span><a id="t135" href="#def--root-ts-literate-src-html-render-ts-6234" class="ts-identifier ts-variable">span</a><span class="ts-punctuation">.</span><span id="t136" class="ts-identifier">classificationType</span><span class="ts-punctuation">.</span><span id="t137" class="ts-identifier">toLowerCase</span><span class="ts-punctuation">(</span><span class="ts-punctuation">)</span><span class="ts-punctuation">.</span><span id="t138" class="ts-identifier">replace</span><span class="ts-punctuation">(</span><span class="ts-string">/ /g</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;-&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+    
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6799" href="#def--root-ts-literate-src-html-render-ts-6799" class="ts-identifier ts-variable">semType</a> <span class="ts-operator">=</span> <a id="t140" href="#def--root-ts-literate-src-html-render-ts-5548" class="ts-identifier ts-variable">semanticTypes</a><span class="ts-punctuation">.</span><a id="t141" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1669" class="ts-identifier ts-method">get</a><span class="ts-punctuation">(</span><a id="t142" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t143" href="#def--root-ts-literate-src-html-render-ts-6799" class="ts-identifier ts-variable">semType</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <a id="t144" href="#def--root-ts-literate-src-html-render-ts-6714" class="ts-identifier ts-variable">classes</a><span class="ts-punctuation">.</span><a id="t145" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><a id="t146" href="#def--root-ts-literate-src-html-render-ts-6799" class="ts-identifier ts-variable">semType</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-6904" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">:</span> <a id="t148" href="types.html#def--root-ts-literate-src-html-types-ts-3320" class="ts-identifier ts-interface">TokenInfo</a> <span class="ts-operator">=</span> <span class="ts-punctuation">{</span> <a id="t149" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-property">start</a><span class="ts-punctuation">,</span> <a id="t150" href="#def--root-ts-literate-src-html-render-ts-6309" class="ts-identifier ts-property">length</a><span class="ts-punctuation">,</span> <a id="t151" href="#def--root-ts-literate-src-html-render-ts-6350" class="ts-identifier ts-property">text</a><span class="ts-punctuation">,</span> <a id="t152" href="#def--root-ts-literate-src-html-render-ts-6714" class="ts-identifier ts-property">classes</a> <span class="ts-punctuation">}</span><span class="ts-punctuation">;</span>
+    
+    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t153" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-1429" class="ts-identifier ts-function">isLinkable</a><span class="ts-punctuation">(</span><a id="t154" href="#def--root-ts-literate-src-html-render-ts-6234" class="ts-identifier ts-variable">span</a><span class="ts-punctuation">.</span><span id="t155" class="ts-identifier">classificationType</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>this is where identifiers become hyperlinks. we ask the language
+service &quot;where is this thing defined?&quot; — the same operation as
+ctrl+click in VS Code. if the definition is right here at this
+position, we&#39;ve found a definition site. if it&#39;s somewhere else,
+we&#39;ve found a reference that should link to the definition.</p>
+</div><pre class="code">      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-7387" href="#def--root-ts-literate-src-html-render-ts-7387" class="ts-identifier ts-variable">defs</a> <span class="ts-operator">=</span> <a id="t157" href="#def--root-ts-literate-src-html-render-ts-4005" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">.</span><span id="t158" class="ts-identifier">getDefinitionAtPosition</span><span class="ts-punctuation">(</span><a id="t159" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> <a id="t160" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t161" href="#def--root-ts-literate-src-html-render-ts-7387" class="ts-identifier ts-variable">defs</a> <span class="ts-operator">&amp;&amp;</span> <a id="t162" href="#def--root-ts-literate-src-html-render-ts-7387" class="ts-identifier ts-variable">defs</a><span class="ts-punctuation">.</span><span id="t163" class="ts-identifier">length</span> <span class="ts-operator">&gt;</span> <span class="ts-number">0</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-7495" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a> <span class="ts-operator">=</span> <a id="t165" href="#def--root-ts-literate-src-html-render-ts-7387" class="ts-identifier ts-variable">defs</a><span class="ts-punctuation">[</span><span class="ts-number">0</span><span class="ts-punctuation">]</span><span class="ts-punctuation">;</span>
+        <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-7524" href="#def--root-ts-literate-src-html-render-ts-7524" class="ts-identifier ts-variable">defId</a> <span class="ts-operator">=</span> <span class="ts-string">`${</span><a id="t167" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t168" class="ts-identifier">fileName</span><span id="t169" class="ts-string">}:${</span><a id="t170" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t171" class="ts-identifier">textSpan</span><span class="ts-punctuation">.</span><span id="t172" class="ts-identifier">start</span><span id="t173" class="ts-string">}`</span><span class="ts-punctuation">;</span>
+        <a id="t174" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t175" href="types.html#def--root-ts-literate-src-html-types-ts-3607" class="ts-identifier ts-property">definitionId</a> <span class="ts-operator">=</span> <a id="t176" href="#def--root-ts-literate-src-html-render-ts-7524" class="ts-identifier ts-variable">defId</a><span class="ts-punctuation">;</span>
+        <a id="t177" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t178" href="types.html#def--root-ts-literate-src-html-types-ts-3675" class="ts-identifier ts-property">definitionFile</a> <span class="ts-operator">=</span> <a id="t179" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t180" class="ts-identifier">fileName</span><span class="ts-punctuation">;</span>
+        </pre><div class="prose"><p>if this definition lives outside our project (not in <code>knownFiles</code>),
+it&#39;s an external — something in <code>node_modules</code> or typescript&#39;s
+own lib files. we track these so the CLI can optionally generate
+html pages for them too, making the cross-file links resolve.
+without <code>--externals</code>, these references will just degrade to
+plain spans in <code>renderToken</code>.</p>
+</div><pre class="code">        <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t181" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t182" href="#def--root-ts-literate-src-html-render-ts-3090" class="ts-identifier ts-property">externalFiles</a> <span class="ts-operator">&amp;&amp;</span> <a id="t183" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t184" href="#def--root-ts-literate-src-html-render-ts-3121" class="ts-identifier ts-property">knownFiles</a> <span class="ts-operator">&amp;&amp;</span> <span class="ts-operator">!</span><a id="t185" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t186" href="#def--root-ts-literate-src-html-render-ts-3121" class="ts-identifier ts-property">knownFiles</a><span class="ts-punctuation">.</span><a id="t187" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1809" class="ts-identifier ts-method">has</a><span class="ts-punctuation">(</span><a id="t188" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t189" class="ts-identifier">fileName</span><span class="ts-punctuation">)</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+          <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t190" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t191" href="#def--root-ts-literate-src-html-render-ts-3186" class="ts-identifier ts-property">includeExternals</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+            <a id="t192" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t193" href="#def--root-ts-literate-src-html-render-ts-3090" class="ts-identifier ts-property">externalFiles</a><span class="ts-punctuation">.</span><a id="t194" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-3502" class="ts-identifier ts-method">add</a><span class="ts-punctuation">(</span><a id="t195" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t196" class="ts-identifier">fileName</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+          <span class="ts-punctuation">}</span>
+        <span class="ts-punctuation">}</span>
+        </pre><div class="prose"><p>if the definition points back to exactly where we are — same file,
+same position — then this token IS the definition. we register it
+in the shared definitions map so other files can link here.</p>
+</div><pre class="code">        <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t197" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t198" class="ts-identifier">fileName</span> <span class="ts-operator">===</span> <a id="t199" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a> <span class="ts-operator">&amp;&amp;</span> <a id="t200" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t201" class="ts-identifier">textSpan</span><span class="ts-punctuation">.</span><span id="t202" class="ts-identifier">start</span> <span class="ts-operator">===</span> <a id="t203" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+          <a id="t204" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t205" href="types.html#def--root-ts-literate-src-html-types-ts-3780" class="ts-identifier ts-property">isDefinition</a> <span class="ts-operator">=</span> <span class="ts-keyword">true</span><span class="ts-punctuation">;</span>
+          <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-8645" href="#def--root-ts-literate-src-html-render-ts-8645" class="ts-identifier ts-variable">pos</a> <span class="ts-operator">=</span> <a id="t207" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a><span class="ts-punctuation">.</span><span id="t208" class="ts-identifier">getLineAndCharacterOfPosition</span><span class="ts-punctuation">(</span><a id="t209" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+          <a id="t210" href="#def--root-ts-literate-src-html-render-ts-4024" class="ts-identifier ts-variable">definitions</a><span class="ts-punctuation">.</span><a id="t211" href="../node_modules/typescript/lib/lib.es2015.collection.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es2015-collection-d-ts-1997" class="ts-identifier ts-method">set</a><span class="ts-punctuation">(</span><a id="t212" href="#def--root-ts-literate-src-html-render-ts-7524" class="ts-identifier ts-variable">defId</a><span class="ts-punctuation">,</span> <span class="ts-punctuation">{</span>
+            <a id="t213" href="#def--root-ts-literate-src-html-render-ts-3041" class="ts-identifier ts-property">file</a><span class="ts-punctuation">:</span> <a id="t214" href="#def--root-ts-literate-src-html-render-ts-7495" class="ts-identifier ts-variable">def</a><span class="ts-punctuation">.</span><span id="t215" class="ts-identifier">fileName</span><span class="ts-punctuation">,</span>
+            <a id="t216" href="#def--root-ts-literate-src-html-render-ts-3055" class="ts-identifier ts-property">line</a><span class="ts-punctuation">:</span> <a id="t217" href="#def--root-ts-literate-src-html-render-ts-8645" class="ts-identifier ts-variable">pos</a><span class="ts-punctuation">.</span><span id="t218" class="ts-identifier">line</span> <span class="ts-operator">+</span> <span class="ts-number">1</span><span class="ts-punctuation">,</span>
+            <a id="t219" href="#def--root-ts-literate-src-html-render-ts-3069" class="ts-identifier ts-property">column</a><span class="ts-punctuation">:</span> <a id="t220" href="#def--root-ts-literate-src-html-render-ts-8645" class="ts-identifier ts-variable">pos</a><span class="ts-punctuation">.</span><span id="t221" class="ts-identifier">character</span> <span class="ts-operator">+</span> <span class="ts-number">1</span>
+          <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <span class="ts-punctuation">}</span>
+      <span class="ts-punctuation">}</span>
+      </pre><div class="prose"><p>and while we&#39;re asking the language service about this token, we
+might as well grab the hover info too — the same tooltip you&#39;d see
+in VS Code. we&#39;ll bake it into the page as a hidden template.</p>
+</div><pre class="code">      <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t222" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t223" href="#def--root-ts-literate-src-html-render-ts-3489" class="ts-identifier ts-property">quickInfoMap</a> <span class="ts-operator">&amp;&amp;</span> <a id="t224" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t225" href="#def--root-ts-literate-src-html-render-ts-3527" class="ts-identifier ts-property">tokenIdCounter</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+        <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-9166" href="#def--root-ts-literate-src-html-render-ts-9166" class="ts-identifier ts-variable">info</a> <span class="ts-operator">=</span> <a id="t227" href="#def--root-ts-literate-src-html-render-ts-4005" class="ts-identifier ts-variable">service</a><span class="ts-punctuation">.</span><span id="t228" class="ts-identifier">getQuickInfoAtPosition</span><span class="ts-punctuation">(</span><a id="t229" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> <a id="t230" href="#def--root-ts-literate-src-html-render-ts-6270" class="ts-identifier ts-variable">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t231" href="#def--root-ts-literate-src-html-render-ts-9166" class="ts-identifier ts-variable">info</a> <span class="ts-operator">&amp;&amp;</span> <a id="t232" href="#def--root-ts-literate-src-html-render-ts-9166" class="ts-identifier ts-variable">info</a><span class="ts-punctuation">.</span><span id="t233" class="ts-identifier">displayParts</span><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+          <a id="t234" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t235" href="types.html#def--root-ts-literate-src-html-types-ts-3885" class="ts-identifier ts-property">quickInfo</a> <span class="ts-operator">=</span> <a id="t236" href="#def--root-ts-literate-src-html-render-ts-774" class="ts-identifier">ts</a><span class="ts-punctuation">.</span><span id="t237" class="ts-identifier">displayPartsToString</span><span class="ts-punctuation">(</span><a id="t238" href="#def--root-ts-literate-src-html-render-ts-9166" class="ts-identifier ts-variable">info</a><span class="ts-punctuation">.</span><span id="t239" class="ts-identifier">displayParts</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+        <span class="ts-punctuation">}</span>
+      <span class="ts-punctuation">}</span>
+    <span class="ts-punctuation">}</span>
+    
+    <a id="t240" href="#def--root-ts-literate-src-html-render-ts-6192" class="ts-identifier ts-variable">tokens</a><span class="ts-punctuation">.</span><a id="t241" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-58412" class="ts-identifier ts-method">push</a><span class="ts-punctuation">(</span><a id="t242" href="#def--root-ts-literate-src-html-render-ts-6904" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  </pre><div class="prose"><p>finally, we assemble the html. tokens don&#39;t cover the entire source
+text — there are gaps between them (whitespace, some operators, things
+the classifier didn&#39;t bother tagging). we walk through in order,
+emitting classified tokens as styled elements and filling the gaps
+with plain escaped text.</p>
+</div><pre class="code">  <a id="t243" href="#def--root-ts-literate-src-html-render-ts-6192" class="ts-identifier ts-variable">tokens</a><span class="ts-punctuation">.</span><a id="t244" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-60800" class="ts-identifier ts-method">sort</a><span class="ts-punctuation">(</span><span class="ts-punctuation">(</span><a id="def--root-ts-literate-src-html-render-ts-9736" href="#def--root-ts-literate-src-html-render-ts-9736" class="ts-parameter-name ts-parameter">a</a><span class="ts-punctuation">,</span> <a id="def--root-ts-literate-src-html-render-ts-9739" href="#def--root-ts-literate-src-html-render-ts-9739" class="ts-parameter-name ts-parameter">b</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">=&gt;</span> <a id="t247" href="#def--root-ts-literate-src-html-render-ts-9736" class="ts-identifier ts-parameter">a</a><span class="ts-punctuation">.</span><a id="t248" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a> <span class="ts-operator">-</span> <a id="t249" href="#def--root-ts-literate-src-html-render-ts-9739" class="ts-identifier ts-parameter">b</a><span class="ts-punctuation">.</span><a id="t250" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-html-render-ts-9774" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">=</span> <span class="ts-string">'&lt;pre class=&quot;code&quot;&gt;'</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">let</span> <a id="def--root-ts-literate-src-html-render-ts-9811" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a> <span class="ts-operator">=</span> <a id="t253" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t254" href="../extract.html#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-9839" href="#def--root-ts-literate-src-html-render-ts-9839" class="ts-identifier ts-variable">layerEnd</a> <span class="ts-operator">=</span> <a id="t256" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t257" href="../extract.html#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a> <span class="ts-operator">+</span> <a id="t258" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t259" href="../extract.html#def--root-ts-literate-src-extract-ts-1526" class="ts-identifier ts-property">originalLength</a><span class="ts-punctuation">;</span>
+  
+  <span class="ts-keyword">for</span> <span class="ts-punctuation">(</span><span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-9903" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a> <span class="ts-keyword">of</span> <a id="t261" href="#def--root-ts-literate-src-html-render-ts-6192" class="ts-identifier ts-variable">tokens</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span></pre><div class="prose"><p>tokens from the classifier might extend beyond the current layer&#39;s
+boundaries (the classifier doesn&#39;t know about our layer system).
+we skip any that fall outside.</p>
+</div><pre class="code">    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t262" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t263" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a> <span class="ts-operator">&lt;</span> <a id="t264" href="#def--root-ts-literate-src-html-render-ts-3971" class="ts-identifier ts-parameter">layer</a><span class="ts-punctuation">.</span><a id="t265" href="../extract.html#def--root-ts-literate-src-extract-ts-1075" class="ts-identifier ts-property">offset</a> <span class="ts-operator">||</span> <a id="t266" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t267" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a> <span class="ts-operator">&gt;=</span> <a id="t268" href="#def--root-ts-literate-src-html-render-ts-9839" class="ts-identifier ts-variable">layerEnd</a><span class="ts-punctuation">)</span> <span class="ts-keyword">continue</span><span class="ts-punctuation">;</span>
+    </pre><div class="prose"><p>between consecutive tokens, there&#39;s often plain text that the
+classifier didn&#39;t bother tagging — whitespace, some punctuation,
+etc. we emit it as plain escaped html to fill the gaps.</p>
+</div><pre class="code">    <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t269" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t270" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a> <span class="ts-operator">&gt;</span> <a id="t271" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+      <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-10435" href="#def--root-ts-literate-src-html-render-ts-10435" class="ts-identifier ts-variable">gap</a> <span class="ts-operator">=</span> <a id="t273" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a><span class="ts-punctuation">.</span><span id="t274" class="ts-identifier">text</span><span class="ts-punctuation">.</span><span id="t275" class="ts-identifier">slice</span><span class="ts-punctuation">(</span><a id="t276" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a><span class="ts-punctuation">,</span> <a id="t277" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t278" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+      <a id="t279" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">+=</span> <a id="t280" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-2188" class="ts-identifier ts-function">escapeHtml</a><span class="ts-punctuation">(</span><a id="t281" href="#def--root-ts-literate-src-html-render-ts-10435" class="ts-identifier ts-variable">gap</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <span class="ts-punctuation">}</span>
+    
+    <a id="t282" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">+=</span> <a id="t283" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5832" class="ts-identifier ts-function">renderToken</a><span class="ts-punctuation">(</span><a id="t284" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">,</span> <a id="t285" href="#def--root-ts-literate-src-html-render-ts-4014" class="ts-identifier ts-variable">filename</a><span class="ts-punctuation">,</span> <span class="ts-punctuation">{</span>
+      <a id="t286" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5644" class="ts-identifier ts-property">knownFiles</a><span class="ts-punctuation">:</span> <a id="t287" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t288" href="#def--root-ts-literate-src-html-render-ts-3121" class="ts-identifier ts-property">knownFiles</a><span class="ts-punctuation">,</span>
+      <a id="t289" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5680" class="ts-identifier ts-method">computeLink</a><span class="ts-punctuation">:</span> <a id="t290" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t291" href="#def--root-ts-literate-src-html-render-ts-3157" class="ts-identifier ts-method">computeLink</a><span class="ts-punctuation">,</span>
+      <a id="t292" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5709" class="ts-identifier ts-property">includeExternals</a><span class="ts-punctuation">:</span> <a id="t293" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t294" href="#def--root-ts-literate-src-html-render-ts-3186" class="ts-identifier ts-property">includeExternals</a> <span class="ts-operator">??</span> <span class="ts-keyword">false</span><span class="ts-punctuation">,</span>
+      <a id="t295" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5739" class="ts-identifier ts-property">quickInfoMap</a><span class="ts-punctuation">:</span> <a id="t296" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t297" href="#def--root-ts-literate-src-html-render-ts-3489" class="ts-identifier ts-property">quickInfoMap</a><span class="ts-punctuation">,</span>
+      <a id="t298" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-5777" class="ts-identifier ts-property">tokenIdCounter</a><span class="ts-punctuation">:</span> <a id="t299" href="#def--root-ts-literate-src-html-render-ts-3951" class="ts-identifier ts-parameter">ctx</a><span class="ts-punctuation">.</span><a id="t300" href="#def--root-ts-literate-src-html-render-ts-3527" class="ts-identifier ts-property">tokenIdCounter</a><span class="ts-punctuation">,</span>
+    <span class="ts-punctuation">}</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <a id="t301" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a> <span class="ts-operator">=</span> <a id="t302" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t303" href="types.html#def--root-ts-literate-src-html-types-ts-3334" class="ts-identifier ts-property">start</a> <span class="ts-operator">+</span> <a id="t304" href="#def--root-ts-literate-src-html-render-ts-9903" class="ts-identifier ts-variable">token</a><span class="ts-punctuation">.</span><a id="t305" href="types.html#def--root-ts-literate-src-html-types-ts-3351" class="ts-identifier ts-property">length</a><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  </pre><div class="prose"><p>after the last token, there might still be trailing text — a closing
+brace, a newline, whitespace the classifier didn&#39;t cover. we flush
+whatever&#39;s left between the last token&#39;s end and the layer boundary.</p>
+</div><pre class="code">  <span class="ts-keyword">if</span> <span class="ts-punctuation">(</span><a id="t306" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a> <span class="ts-operator">&lt;</span> <a id="t307" href="#def--root-ts-literate-src-html-render-ts-9839" class="ts-identifier ts-variable">layerEnd</a><span class="ts-punctuation">)</span> <span class="ts-punctuation">{</span>
+    <span class="ts-keyword">const</span> <a id="def--root-ts-literate-src-html-render-ts-11086" href="#def--root-ts-literate-src-html-render-ts-11086" class="ts-identifier ts-variable">gap</a> <span class="ts-operator">=</span> <a id="t309" href="#def--root-ts-literate-src-html-render-ts-4178" class="ts-identifier ts-variable">sourceFile</a><span class="ts-punctuation">.</span><span id="t310" class="ts-identifier">text</span><span class="ts-punctuation">.</span><span id="t311" class="ts-identifier">slice</span><span class="ts-punctuation">(</span><a id="t312" href="#def--root-ts-literate-src-html-render-ts-9811" class="ts-identifier ts-variable">pos</a><span class="ts-punctuation">,</span> <a id="t313" href="#def--root-ts-literate-src-html-render-ts-9839" class="ts-identifier ts-variable">layerEnd</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+    <a id="t314" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">+=</span> <a id="t315" href="tokens.html#def--root-ts-literate-src-html-tokens-ts-2188" class="ts-identifier ts-function">escapeHtml</a><span class="ts-punctuation">(</span><a id="t316" href="#def--root-ts-literate-src-html-render-ts-11086" class="ts-identifier ts-variable">gap</a><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  <span class="ts-punctuation">}</span>
+  </pre><div class="prose"><p>trim trailing blank lines so code blocks don&#39;t have awkward whitespace
+at the bottom.</p>
+</div><pre class="code">  <a id="t317" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">=</span> <a id="t318" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">.</span><a id="t319" href="../node_modules/typescript/lib/lib.es5.d.html#def--root-ts-literate-node-modules-typescript-lib-lib-es5-d-ts-18365" class="ts-identifier ts-method">replace</a><span class="ts-punctuation">(</span><span class="ts-string">/\n+$/</span><span class="ts-punctuation">,</span> <span class="ts-string">&quot;&quot;</span><span class="ts-punctuation">)</span><span class="ts-punctuation">;</span>
+  
+  <a id="t320" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a> <span class="ts-operator">+=</span> <span class="ts-string">&quot;&lt;/pre&gt;&quot;</span><span class="ts-punctuation">;</span>
+  <span class="ts-keyword">return</span> <a id="t321" href="#def--root-ts-literate-src-html-render-ts-9774" class="ts-identifier ts-variable">result</a><span class="ts-punctuation">;</span>
+<span class="ts-punctuation">}</span></pre>
+</div>
+<script>
+var dict = new Map();
+
+window.onload = function () {
+  var objs = document.querySelectorAll('a[href]');
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    var key = obj.href;
+    var set = dict.get(key) || new Set();
+    set.add(obj);
+    dict.set(key, set);
+  }
+  
+  for (var i = 0; i < objs.length; i++) {
+    var obj = objs[i];
+    obj.onmouseover = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.add('hover-highlight'); });
+    }
+    obj.onmouseout = function () {
+      var s = dict.get(this.href);
+      if (s) s.forEach(function(o) { o.classList.remove('hover-highlight'); });
+    }
+  }
+};
+</script>
+<div id="quickinfo-templates" style="display:none">
+<template id="qi-t0"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-774"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t1"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/node_modules/typescript/lib/typescript&quot;</span></template>
+<template id="qi-t2">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span>
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t3"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/src/extract&quot;</span></template>
+<template id="qi-t4">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">TokenInfo</span>
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t5"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/src/html/types&quot;</span></template>
+<template id="qi-t6">(alias) <span style="color:#D73A49">function</span> <span style="color:#6F42C1">isLinkable</span>(<span style="color:#E36209">classificationType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">boolean</span>
+<span style="color:#D73A49">import</span> isLinkable</template>
+<template id="qi-t7">(alias) <span style="color:#D73A49">function</span> <span style="color:#6F42C1">escapeHtml</span>(<span style="color:#E36209">s</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>
+<span style="color:#D73A49">import</span> escapeHtml</template>
+<template id="qi-t8">(alias) <span style="color:#D73A49">function</span> <span style="color:#6F42C1">renderToken</span>(<span style="color:#E36209">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>, <span style="color:#E36209">currentFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">opts</span><span style="color:#D73A49">?:</span> <span style="color:#6F42C1">RenderTokenOptions</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>
+<span style="color:#D73A49">import</span> renderToken</template>
+<template id="qi-t9">(alias) <span style="color:#D73A49">type</span> <span style="color:#6F42C1">ComputeLink</span> <span style="color:#D73A49">=</span> (<span style="color:#E36209">fromFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">toFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">anchor</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>) <span style="color:#D73A49">=&gt;</span> <span style="color:#005CC5">string</span>
+<span style="color:#D73A49">import</span> ComputeLink</template>
+<template id="qi-t10"><span style="color:#D73A49">module</span> <span style="color:#032F62">&quot;/root/ts-literate/src/html/tokens&quot;</span></template>
+<template id="qi-t11"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTokenTypes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-1616"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTokenTypes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t12"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">decodeSemanticClassification</span>(<span style="color:#E36209">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2112"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">decodeSemanticClassification</span>(<span style="color:#E36209">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t13">(parameter) <span style="color:#6F42C1">encoded</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2141">(parameter) <span style="color:#6F42C1">encoded</span>: number</template>
+<template id="qi-t14"><span style="color:#D73A49">const</span> <span style="color:#005CC5">typeIdx</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2188"><span style="color:#D73A49">const</span> <span style="color:#005CC5">typeIdx</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t15">(parameter) <span style="color:#6F42C1">encoded</span>: number</template>
+<template id="qi-t16"><span style="color:#D73A49">const</span> <span style="color:#005CC5">typeIdx</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t17"><span style="color:#D73A49">const</span> <span style="color:#005CC5">typeIdx</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t18"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTokenTypes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t19">(property) Array<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t20"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTokenTypes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>[]</template>
+<template id="qi-t21"><span style="color:#D73A49">const</span> <span style="color:#005CC5">typeIdx</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t22"><span style="color:#D73A49">var</span> undefined</template>
+<template id="qi-t23"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">RenderContext</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2719"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">RenderContext</span></template>
+<template id="qi-t24">(property) RenderContext.service: ts.LanguageService</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2737">(property) RenderContext.service: ts.LanguageService</template>
+<template id="qi-t25"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t26"><span style="color:#D73A49">type</span> <span style="color:#6F42C1">ts</span>.LanguageService <span style="color:#D73A49">=</span> <span style="color:#6A737D">/*unresolved*/</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t27">(property) RenderContext.filename: string</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-2768">(property) RenderContext.filename: string</template>
+<template id="qi-t28">(property) RenderContext.definitions: Map<span style="color:#D73A49">&lt;</span>string, {
+    file: string;
+    line: number;
+    column: number;
+}<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3014">(property) RenderContext.definitions: Map<span style="color:#D73A49">&lt;</span>string, {
+    file: string;
+    line: number;
+    column: number;
+}<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t29"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#6F42C1">K</span>, <span style="color:#6F42C1">V</span>&gt;</template>
+<template id="qi-t30">(property) <span style="color:#6F42C1">file</span>: string</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3041">(property) <span style="color:#6F42C1">file</span>: string</template>
+<template id="qi-t31">(property) <span style="color:#6F42C1">line</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3055">(property) <span style="color:#6F42C1">line</span>: number</template>
+<template id="qi-t32">(property) <span style="color:#6F42C1">column</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3069">(property) <span style="color:#6F42C1">column</span>: number</template>
+<template id="qi-t33">(property) RenderContext.externalFiles<span style="color:#D73A49">?:</span> Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3090">(property) RenderContext.externalFiles<span style="color:#D73A49">?:</span> Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t34"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Set</span>&lt;<span style="color:#6F42C1">T</span>&gt;</template>
+<template id="qi-t35">(property) RenderContext.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3121">(property) RenderContext.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t36"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#6F42C1">K</span>, <span style="color:#6F42C1">V</span>&gt;</template>
+<template id="qi-t37">(property) RenderContext.computeLink<span style="color:#D73A49">?:</span> ComputeLink <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3157">(property) RenderContext.computeLink<span style="color:#D73A49">?:</span> ComputeLink <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t38">(alias) <span style="color:#D73A49">type</span> <span style="color:#6F42C1">ComputeLink</span> <span style="color:#D73A49">=</span> (<span style="color:#E36209">fromFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">toFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">anchor</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>) <span style="color:#D73A49">=&gt;</span> <span style="color:#005CC5">string</span>
+<span style="color:#D73A49">import</span> ComputeLink</template>
+<template id="qi-t39">(property) RenderContext.includeExternals<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3186">(property) RenderContext.includeExternals<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t40">(property) RenderContext.quickInfoMap<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3489">(property) RenderContext.quickInfoMap<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t41"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#6F42C1">K</span>, <span style="color:#6F42C1">V</span>&gt;</template>
+<template id="qi-t42">(property) RenderContext.tokenIdCounter<span style="color:#D73A49">?:</span> {
+    value: number;
+} <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3527">(property) RenderContext.tokenIdCounter<span style="color:#D73A49">?:</span> {
+    value: number;
+} <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t43">(property) <span style="color:#6F42C1">value</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3546">(property) <span style="color:#6F42C1">value</span>: number</template>
+<template id="qi-t44"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">renderCodeBlock</span>(<span style="color:#E36209">ctx</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">RenderContext</span>, <span style="color:#E36209">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3935"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">renderCodeBlock</span>(<span style="color:#E36209">ctx</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">RenderContext</span>, <span style="color:#E36209">layer</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Layer</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t45">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3951">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t46"><span style="color:#D73A49">interface</span> <span style="color:#6F42C1">RenderContext</span></template>
+<template id="qi-t47">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-3971">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t48">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">Layer</span>
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">Layer</span></template>
+<template id="qi-t49"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t50"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t51"><span style="color:#D73A49">const</span> <span style="color:#005CC5">definitions</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, {
+    <span style="color:#E36209">file</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>;
+    <span style="color:#E36209">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>;
+    <span style="color:#E36209">column</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>;
+}&gt;</template>
+<template id="qi-t52">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t53"><span style="color:#D73A49">const</span> <span style="color:#005CC5">program</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-4056"><span style="color:#D73A49">const</span> <span style="color:#005CC5">program</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t54"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t55">any</template>
+<template id="qi-t56"><span style="color:#D73A49">const</span> <span style="color:#005CC5">program</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t57">(alias) <span style="color:#6F42C1">escapeHtml</span>(s: string): string
+<span style="color:#D73A49">import</span> escapeHtml</template>
+<template id="qi-t58">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t59">(property) Layer.content: string</template>
+<template id="qi-t60"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-4178"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t61"><span style="color:#D73A49">const</span> <span style="color:#005CC5">program</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t62">any</template>
+<template id="qi-t63"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t64"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t65">(alias) <span style="color:#6F42C1">escapeHtml</span>(s: string): string
+<span style="color:#D73A49">import</span> escapeHtml</template>
+<template id="qi-t66">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t67">(property) Layer.content: string</template>
+<template id="qi-t68"><span style="color:#D73A49">const</span> <span style="color:#005CC5">syntacticSpans</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-4608"><span style="color:#D73A49">const</span> <span style="color:#005CC5">syntacticSpans</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t69"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t70">any</template>
+<template id="qi-t71"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t72">(property) <span style="color:#6F42C1">start</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-4677">(property) <span style="color:#6F42C1">start</span>: number</template>
+<template id="qi-t73">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t74">(property) Layer.offset: number</template>
+<template id="qi-t75">(property) <span style="color:#6F42C1">length</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-4702">(property) <span style="color:#6F42C1">length</span>: number</template>
+<template id="qi-t76">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t77">(property) Layer.originalLength: number</template>
+<template id="qi-t78"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticResult</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5065"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticResult</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t79"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t80">any</template>
+<template id="qi-t81"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t82">(property) <span style="color:#6F42C1">start</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5146">(property) <span style="color:#6F42C1">start</span>: number</template>
+<template id="qi-t83">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t84">(property) Layer.offset: number</template>
+<template id="qi-t85">(property) <span style="color:#6F42C1">length</span>: number</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5167">(property) <span style="color:#6F42C1">length</span>: number</template>
+<template id="qi-t86">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t87">(property) Layer.originalLength: number</template>
+<template id="qi-t88"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t89">any</template>
+<template id="qi-t90">any</template>
+<template id="qi-t91"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTypes</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5548"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTypes</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t92"><span style="color:#D73A49">var</span> Map<span style="color:#D73A49">:</span> <span style="color:#6F42C1">MapConstructor</span>
+<span style="color:#D73A49">new</span> &lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt;(<span style="color:#E36209">iterable</span><span style="color:#D73A49">?:</span> <span style="color:#6F42C1">Iterable</span>&lt;<span style="color:#D73A49">readonly</span> [<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>]&gt; <span style="color:#D73A49">|</span> <span style="color:#005CC5">null</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span>) <span style="color:#D73A49">=&gt;</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt; (<span style="color:#D73A49">+</span><span style="color:#005CC5">3</span> overloads)</template>
+<template id="qi-t93"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5602"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t94"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t95"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticResult</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t96">any</template>
+<template id="qi-t97">any</template>
+<template id="qi-t98"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t99"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5662"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t100"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticResult</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t101">any</template>
+<template id="qi-t102"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t103"><span style="color:#D73A49">const</span> <span style="color:#005CC5">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5705"><span style="color:#D73A49">const</span> <span style="color:#005CC5">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t104"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticResult</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t105">any</template>
+<template id="qi-t106"><span style="color:#D73A49">let</span> i<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t107"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-5754"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t108"><span style="color:#D73A49">function</span> <span style="color:#6F42C1">decodeSemanticClassification</span>(<span style="color:#E36209">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t109"><span style="color:#D73A49">const</span> <span style="color:#005CC5">encoded</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t110"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t111"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTypes</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t112">(method) Map<span style="color:#D73A49">&lt;</span>number, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">set</span>(key: number, value: string): Map<span style="color:#D73A49">&lt;</span>number, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t113"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t114"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t115"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tokens</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>[]</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6192"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tokens</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>[]</template>
+<template id="qi-t116">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">TokenInfo</span>
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t117"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6234"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t118"><span style="color:#D73A49">const</span> <span style="color:#005CC5">syntacticSpans</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t119"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6270"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t120"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t121">any</template>
+<template id="qi-t122">any</template>
+<template id="qi-t123"><span style="color:#D73A49">const</span> <span style="color:#005CC5">length</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6309"><span style="color:#D73A49">const</span> <span style="color:#005CC5">length</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t124"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t125">any</template>
+<template id="qi-t126">any</template>
+<template id="qi-t127"><span style="color:#D73A49">const</span> <span style="color:#005CC5">text</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6350"><span style="color:#D73A49">const</span> <span style="color:#005CC5">text</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t128"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t129">any</template>
+<template id="qi-t130">any</template>
+<template id="qi-t131"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t132"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t133"><span style="color:#D73A49">const</span> <span style="color:#005CC5">length</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t134"><span style="color:#D73A49">const</span> <span style="color:#005CC5">classes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>[]</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6714"><span style="color:#D73A49">const</span> <span style="color:#005CC5">classes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>[]</template>
+<template id="qi-t135"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t136">any</template>
+<template id="qi-t137">any</template>
+<template id="qi-t138">any</template>
+<template id="qi-t139"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6799"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t140"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semanticTypes</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">number</span>, <span style="color:#005CC5">string</span>&gt;</template>
+<template id="qi-t141">(method) Map<span style="color:#D73A49">&lt;</span>number, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">get</span>(key: number): string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t142"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t143"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t144"><span style="color:#D73A49">const</span> <span style="color:#005CC5">classes</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span>[]</template>
+<template id="qi-t145">(method) Array<span style="color:#D73A49">&lt;</span>any<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: any[]): number</template>
+<template id="qi-t146"><span style="color:#D73A49">const</span> <span style="color:#005CC5">semType</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t147"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-6904"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t148">(alias) <span style="color:#D73A49">interface</span> <span style="color:#6F42C1">TokenInfo</span>
+<span style="color:#6F42C1">import</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t149">(property) TokenInfo.start: number</template>
+<template id="qi-t150">(property) TokenInfo.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t151">(property) TokenInfo.text: string</template>
+<template id="qi-t152">(property) TokenInfo.classes: string[]</template>
+<template id="qi-t153">(alias) <span style="color:#6F42C1">isLinkable</span>(classificationType: string): boolean
+<span style="color:#D73A49">import</span> isLinkable</template>
+<template id="qi-t154"><span style="color:#D73A49">const</span> <span style="color:#005CC5">span</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t155">any</template>
+<template id="qi-t156"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-7387"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t157"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t158">any</template>
+<template id="qi-t159"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t160"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t161"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t162"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t163">any</template>
+<template id="qi-t164"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-7495"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t165"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defs</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t166"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defId</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-7524"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defId</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t167"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t168">any</template>
+<template id="qi-t169">any</template>
+<template id="qi-t170"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t171">any</template>
+<template id="qi-t172">any</template>
+<template id="qi-t173">any</template>
+<template id="qi-t174"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t175">(property) TokenInfo.definitionId<span style="color:#D73A49">?:</span> string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t176"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defId</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t177"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t178">(property) TokenInfo.definitionFile<span style="color:#D73A49">?:</span> string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t179"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t180">any</template>
+<template id="qi-t181">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t182">(property) RenderContext.externalFiles<span style="color:#D73A49">?:</span> Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t183">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t184">(property) RenderContext.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t185">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t186">(property) RenderContext.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t187">(method) Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">has</span>(key: string): boolean</template>
+<template id="qi-t188"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t189">any</template>
+<template id="qi-t190">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t191">(property) RenderContext.includeExternals<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t192">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t193">(property) RenderContext.externalFiles<span style="color:#D73A49">?:</span> Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t194">(method) Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">add</span>(value: string): Set<span style="color:#D73A49">&lt;</span>string<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t195"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t196">any</template>
+<template id="qi-t197"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t198">any</template>
+<template id="qi-t199"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t200"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t201">any</template>
+<template id="qi-t202">any</template>
+<template id="qi-t203"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t204"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t205">(property) TokenInfo.isDefinition<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t206"><span style="color:#D73A49">const</span> <span style="color:#005CC5">pos</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-8645"><span style="color:#D73A49">const</span> <span style="color:#005CC5">pos</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t207"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t208">any</template>
+<template id="qi-t209"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t210"><span style="color:#D73A49">const</span> <span style="color:#005CC5">definitions</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">Map</span>&lt;<span style="color:#005CC5">string</span>, {
+    <span style="color:#E36209">file</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>;
+    <span style="color:#E36209">line</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>;
+    <span style="color:#E36209">column</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span>;
+}&gt;</template>
+<template id="qi-t211">(method) Map<span style="color:#D73A49">&lt;</span>string, { file: string; line: number; column: number; }<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">set</span>(key: string, value: {
+    file: string;
+    line: number;
+    column: number;
+}): Map<span style="color:#D73A49">&lt;</span>string, {
+    file: string;
+    line: number;
+    column: number;
+}<span style="color:#D73A49">&gt;</span></template>
+<template id="qi-t212"><span style="color:#D73A49">const</span> <span style="color:#005CC5">defId</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t213">(property) <span style="color:#6F42C1">file</span>: string</template>
+<template id="qi-t214"><span style="color:#D73A49">const</span> <span style="color:#005CC5">def</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t215">any</template>
+<template id="qi-t216">(property) <span style="color:#6F42C1">line</span>: number</template>
+<template id="qi-t217"><span style="color:#D73A49">const</span> <span style="color:#005CC5">pos</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t218">any</template>
+<template id="qi-t219">(property) <span style="color:#6F42C1">column</span>: number</template>
+<template id="qi-t220"><span style="color:#D73A49">const</span> <span style="color:#005CC5">pos</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t221">any</template>
+<template id="qi-t222">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t223">(property) RenderContext.quickInfoMap<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t224">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t225">(property) RenderContext.tokenIdCounter<span style="color:#D73A49">?:</span> {
+    value: number;
+} <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t226"><span style="color:#D73A49">const</span> <span style="color:#005CC5">info</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9166"><span style="color:#D73A49">const</span> <span style="color:#005CC5">info</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t227"><span style="color:#D73A49">const</span> <span style="color:#005CC5">service</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">ts</span>.<span style="color:#6F42C1">LanguageService</span></template>
+<template id="qi-t228">any</template>
+<template id="qi-t229"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t230"><span style="color:#D73A49">const</span> <span style="color:#005CC5">start</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t231"><span style="color:#D73A49">const</span> <span style="color:#005CC5">info</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t232"><span style="color:#D73A49">const</span> <span style="color:#005CC5">info</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t233">any</template>
+<template id="qi-t234"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t235">(property) TokenInfo.quickInfo<span style="color:#D73A49">?:</span> string <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t236"><span style="color:#D73A49">import</span> ts</template>
+<template id="qi-t237">any</template>
+<template id="qi-t238"><span style="color:#D73A49">const</span> <span style="color:#005CC5">info</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t239">any</template>
+<template id="qi-t240"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tokens</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>[]</template>
+<template id="qi-t241">(method) Array<span style="color:#D73A49">&lt;</span>TokenInfo<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">push</span>(<span style="color:#D73A49">...</span>items: TokenInfo[]): number</template>
+<template id="qi-t242"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t243"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tokens</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>[]</template>
+<template id="qi-t244">(method) Array<span style="color:#D73A49">&lt;</span>TokenInfo<span style="color:#D73A49">&gt;</span>.<span style="color:#6F42C1">sort</span>(compareFn<span style="color:#D73A49">?:</span> ((<span style="color:#E36209">a</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>, <span style="color:#E36209">b</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>) <span style="color:#D73A49">=&gt;</span> number) <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span>): TokenInfo[]</template>
+<template id="qi-t245">(parameter) <span style="color:#6F42C1">a</span>: TokenInfo</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9736">(parameter) <span style="color:#6F42C1">a</span>: TokenInfo</template>
+<template id="qi-t246">(parameter) <span style="color:#6F42C1">b</span>: TokenInfo</template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9739">(parameter) <span style="color:#6F42C1">b</span>: TokenInfo</template>
+<template id="qi-t247">(parameter) <span style="color:#6F42C1">a</span>: TokenInfo</template>
+<template id="qi-t248">(property) TokenInfo.start: number</template>
+<template id="qi-t249">(parameter) <span style="color:#6F42C1">b</span>: TokenInfo</template>
+<template id="qi-t250">(property) TokenInfo.start: number</template>
+<template id="qi-t251"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9774"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t252"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9811"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t253">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t254">(property) Layer.offset: number</template>
+<template id="qi-t255"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layerEnd</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9839"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layerEnd</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t256">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t257">(property) Layer.offset: number</template>
+<template id="qi-t258">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t259">(property) Layer.originalLength: number</template>
+<template id="qi-t260"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-9903"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t261"><span style="color:#D73A49">const</span> <span style="color:#005CC5">tokens</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span>[]</template>
+<template id="qi-t262"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t263">(property) TokenInfo.start: number</template>
+<template id="qi-t264">(parameter) <span style="color:#6F42C1">layer</span>: Layer</template>
+<template id="qi-t265">(property) Layer.offset: number</template>
+<template id="qi-t266"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t267">(property) TokenInfo.start: number</template>
+<template id="qi-t268"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layerEnd</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t269"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t270">(property) TokenInfo.start: number</template>
+<template id="qi-t271"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t272"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-10435"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t273"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t274">any</template>
+<template id="qi-t275">any</template>
+<template id="qi-t276"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t277"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t278">(property) TokenInfo.start: number</template>
+<template id="qi-t279"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t280">(alias) <span style="color:#6F42C1">escapeHtml</span>(s: string): string
+<span style="color:#D73A49">import</span> escapeHtml</template>
+<template id="qi-t281"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t282"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t283">(alias) <span style="color:#6F42C1">renderToken</span>(token: TokenInfo, currentFile: string, opts<span style="color:#D73A49">?:</span> RenderTokenOptions): string
+<span style="color:#D73A49">import</span> renderToken</template>
+<template id="qi-t284"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t285"><span style="color:#D73A49">const</span> <span style="color:#005CC5">filename</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t286">(property) RenderTokenOptions.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t287">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t288">(property) RenderContext.knownFiles<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t289">(property) RenderTokenOptions.computeLink<span style="color:#D73A49">?:</span> ComputeLink <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t290">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t291">(property) RenderContext.computeLink<span style="color:#D73A49">?:</span> ComputeLink <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t292">(property) RenderTokenOptions.includeExternals<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t293">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t294">(property) RenderContext.includeExternals<span style="color:#D73A49">?:</span> boolean <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t295">(property) RenderTokenOptions.quickInfoMap<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t296">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t297">(property) RenderContext.quickInfoMap<span style="color:#D73A49">?:</span> Map<span style="color:#D73A49">&lt;</span>string, string<span style="color:#D73A49">&gt;</span> <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t298">(property) RenderTokenOptions.tokenIdCounter<span style="color:#D73A49">?:</span> {
+    value: number;
+} <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t299">(parameter) <span style="color:#6F42C1">ctx</span>: RenderContext</template>
+<template id="qi-t300">(property) RenderContext.tokenIdCounter<span style="color:#D73A49">?:</span> {
+    value: number;
+} <span style="color:#D73A49">|</span> <span style="color:#005CC5">undefined</span></template>
+<template id="qi-t301"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t302"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t303">(property) TokenInfo.start: number</template>
+<template id="qi-t304"><span style="color:#D73A49">const</span> <span style="color:#005CC5">token</span><span style="color:#D73A49">:</span> <span style="color:#6F42C1">TokenInfo</span></template>
+<template id="qi-t305">(property) TokenInfo.<span style="color:#005CC5">length</span>: number</template>
+<template id="qi-t306"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t307"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layerEnd</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t308"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-def--root-ts-literate-src-html-render-ts-11086"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t309"><span style="color:#D73A49">const</span> <span style="color:#005CC5">sourceFile</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t310">any</template>
+<template id="qi-t311">any</template>
+<template id="qi-t312"><span style="color:#D73A49">let</span> pos<span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t313"><span style="color:#D73A49">const</span> <span style="color:#005CC5">layerEnd</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">number</span></template>
+<template id="qi-t314"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t315">(alias) <span style="color:#6F42C1">escapeHtml</span>(s: string): string
+<span style="color:#D73A49">import</span> escapeHtml</template>
+<template id="qi-t316"><span style="color:#D73A49">const</span> <span style="color:#005CC5">gap</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">any</span></template>
+<template id="qi-t317"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t318"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t319">(method) String.<span style="color:#6F42C1">replace</span>(searchValue: {
+    [Symbol.replace](<span style="color:#E36209">string</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>, <span style="color:#E36209">replaceValue</span><span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>)<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span>;
+}, replaceValue: string): <span style="color:#6F42C1">string</span> (<span style="color:#D73A49">+</span><span style="color:#005CC5">3</span> overloads)</template>
+<template id="qi-t320"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+<template id="qi-t321"><span style="color:#D73A49">let</span> result<span style="color:#D73A49">:</span> <span style="color:#005CC5">string</span></template>
+</div>
+</body>
+</html>
